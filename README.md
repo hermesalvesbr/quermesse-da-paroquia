@@ -41,6 +41,22 @@ npm install
 
 ---
 
+## Qualidade de código
+
+Este projeto usa **ESLint com `@antfu/eslint-config`** para manter padrão consistente e facilitar manutenção no time.
+
+```bash
+# Verificar padrões
+npm run lint
+
+# Corrigir automaticamente o que for possível
+npm run lint:fix
+```
+
+Template de PR com checklist operacional disponível em `.github/pull_request_template.md`.
+
+---
+
 ## Rodando no Android
 
 ### 1) Build local
@@ -122,6 +138,9 @@ Emuladores Android podem não reproduzir fielmente o Bluetooth clássico SPP com
 ```bash
 # Build
 ns build android
+
+# Lint
+npm run lint
 
 # Rodar no Android
 ns run android --no-hmr

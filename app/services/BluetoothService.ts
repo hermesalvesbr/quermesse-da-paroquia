@@ -54,10 +54,11 @@ export class BluetoothService {
 
         this.notifyStatus('Carregando impressoras pareadas...');
         const bondedDevices = this.bluetoothAdapter.getBondedDevices();
-        const iterator = bondedDevices ? bondedDevices.iterator() : null;
+        const devices = bondedDevices
+            ? Array.from(bondedDevices.toArray() as android.bluetooth.BluetoothDevice[])
+            : [];
 
-        while (iterator && iterator.hasNext()) {
-            const device = iterator.next() as android.bluetooth.BluetoothDevice;
+        for (const device of devices) {
             const name = device.getName() || 'Dispositivo sem nome';
             const address = device.getAddress();
 
@@ -70,7 +71,6 @@ export class BluetoothService {
     }
 
     public async stopScanning(): Promise<void> {
-        return;
     }
 
     public async connect(address: string): Promise<boolean> {
@@ -80,7 +80,8 @@ export class BluetoothService {
 
         this.manualDisconnect = false;
         this.clearReconnectTimer();
-        await this.disconnect();
+        this.closeCurrentConnection(false);
+        this.connectedAddress = address;
 
         const remoteDevice = this.bluetoothAdapter.getRemoteDevice(address);
         if (!remoteDevice) {
@@ -99,15 +100,13 @@ export class BluetoothService {
 
             this.socket = socket;
             this.outputStream = socket.getOutputStream();
-            this.connectedAddress = address;
             this.isConnected = true;
             this.reconnectAttempts = 0;
 
             this.notifyStatus(`Conectado a ${remoteDevice.getName() || address}.`);
             return true;
         } catch (error) {
-            this.isConnected = false;
-            this.cleanupSocketResources();
+            this.closeCurrentConnection(false);
             this.notifyStatus(`Falha ao conectar em ${address}.`);
             throw error;
         }
@@ -116,11 +115,17 @@ export class BluetoothService {
     public async disconnect(): Promise<void> {
         this.manualDisconnect = true;
         this.clearReconnectTimer();
-        this.cleanupSocketResources();
-
-        this.isConnected = false;
-        this.connectedAddress = null;
+        this.closeCurrentConnection(true);
         this.notifyStatus('Desconectado.');
+    }
+
+    public async reconnectLastPrinter(): Promise<boolean> {
+        if (!this.connectedAddress) {
+            throw new Error('Nenhuma impressora conhecida para reconectar.');
+        }
+
+        this.manualDisconnect = false;
+        return this.connect(this.connectedAddress);
     }
 
     public getConnectedStatus(): boolean {
@@ -139,7 +144,7 @@ export class BluetoothService {
         try {
             const payload = Array.create('byte', bytes.length);
             for (let index = 0; index < bytes.length; index += 1) {
-                payload[index] = bytes[index] & 0xff;
+                payload[index] = bytes[index] & 0xFF;
             }
 
             this.outputStream.write(payload);
@@ -174,7 +179,7 @@ export class BluetoothService {
             try {
                 this.notifyStatus(`Tentando reconexão (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
                 await this.connect(targetAddress);
-            } catch (error) {
+            } catch {
                 this.scheduleReconnect();
             }
         }, this.reconnectDelayMs) as unknown as number;
@@ -206,5 +211,13 @@ export class BluetoothService {
 
         this.outputStream = null;
         this.socket = null;
+    }
+
+    private closeCurrentConnection(clearAddress: boolean): void {
+        this.cleanupSocketResources();
+        this.isConnected = false;
+        if (clearAddress) {
+            this.connectedAddress = null;
+        }
     }
 }

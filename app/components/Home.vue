@@ -4,7 +4,7 @@
             <Label text="Integração PDV Bluetooth"/>
         </ActionBar>
 
-        <GridLayout rows="auto, auto, auto, *, auto, auto" class="p-4 bg-gray-100 h-full">
+        <GridLayout rows="auto, auto, auto, *, auto, auto, auto" class="p-4 bg-gray-100 h-full">
             <!-- Connection Status -->
             <StackLayout row="0" class="m-b-4 p-4 rounded-lg shadow-sm" :class="isConnected ? 'bg-green-100' : 'bg-red-100'">
                 <Label class="text-xl font-bold text-center" :class="isConnected ? 'text-green-800' : 'text-red-800'" 
@@ -43,14 +43,26 @@
                         :class="(!isConnected || saleAmount.length == 0) ? 'opacity-50' : ''" />
             </StackLayout>
 
-            <Label row="5" :text="statusMessage" class="text-center text-sm text-gray-700 m-t-3" textWrap="true" />
+            <GridLayout row="5" columns="*, *" class="m-t-3" columnGap="8">
+                <Button col="0" text="RECONECTAR" @tap="reconnectPrinter"
+                        :isEnabled="!isConnected && selectedPrinterAddress.length > 0"
+                        class="bg-yellow-600 text-white p-3 rounded-lg font-bold"
+                        :class="(isConnected || selectedPrinterAddress.length == 0) ? 'opacity-50' : ''" />
+
+                <Button col="1" text="DESCONECTAR" @tap="disconnectPrinter"
+                        :isEnabled="isConnected"
+                        class="bg-red-600 text-white p-3 rounded-lg font-bold"
+                        :class="!isConnected ? 'opacity-50' : ''" />
+            </GridLayout>
+
+            <Label row="6" :text="statusMessage" class="text-center text-sm text-gray-700 m-t-3" textWrap="true" />
         </GridLayout>
     </Page>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { BluetoothService, BluetoothPrinter } from '../services/BluetoothService';
+import { BluetoothService, type BluetoothPrinter } from '../services/BluetoothService';
 import { EscPosBuilder } from '../utils/EscPosBuilder';
 
 const btService = new BluetoothService();
@@ -165,6 +177,30 @@ async function printReceipt() {
     } catch (err) {
         alert(`Erro na impressão: ${err}`);
         isConnected.value = btService.getConnectedStatus();
+    }
+}
+
+async function disconnectPrinter() {
+    try {
+        await btService.disconnect();
+        isConnected.value = false;
+    } catch (err) {
+        alert(`Erro ao desconectar: ${err}`);
+    }
+}
+
+async function reconnectPrinter() {
+    try {
+        if (!selectedPrinterAddress.value) {
+            alert('Selecione uma impressora primeiro.');
+            return;
+        }
+
+        await btService.connect(selectedPrinterAddress.value);
+        isConnected.value = true;
+    } catch (err) {
+        isConnected.value = false;
+        alert(`Erro ao reconectar: ${err}`);
     }
 }
 </script>
