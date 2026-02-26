@@ -1,6 +1,234 @@
 @import "tailwindcss";
 
-ActionBar {
-    background-color: #65adf1;
-    color: white;
+.ns-root {
+    --brand-primary: #2d6cdf;
+    --brand-primary-strong: #1247a6;
+    --brand-accent: #56b8ff;
+    --surface-bg: #eaf2ff;
+    --glass-bg: rgba(255, 255, 255, 0.72);
+    --glass-border: rgba(255, 255, 255, 0.88);
+    --text-main: #152238;
+    --text-muted: #5e6d84;
+    --success: #1f9d58;
+    --danger: #d04444;
+    --warn: #c17b10;
+}
+
+.app-root {
+    background: linear-gradient(145deg, #edf4ff 0%, #dbe9ff 40%, #f5f8ff 100%);
+}
+
+ActionBar.app-actionbar {
+    background-color: var(--brand-primary);
+    color: #ffffff;
+}
+
+.screen {
+    color: var(--text-main);
+}
+
+.content-area {
+    background-color: transparent;
+}
+
+.drawer {
+    width: 248;
+    background-color: rgba(16, 48, 97, 0.92);
+    border-right-width: 1;
+    border-right-color: rgba(255, 255, 255, 0.12);
+}
+
+.drawer-collapsed {
+    width: 0;
+    visibility: collapse;
+}
+
+.drawer-header {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.drawer-title {
+    color: #ffffff;
+    font-size: 18;
+    font-weight: 700;
+}
+
+.drawer-subtitle {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 12;
+}
+
+.drawer-item {
+    margin: 6 12;
+    border-radius: 14;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    font-size: 15;
+    font-weight: 600;
+}
+
+.glass-card {
+    background-color: var(--glass-bg);
+    border-width: 1;
+    border-color: var(--glass-border);
+    border-radius: 20;
+    box-shadow: 0 10 24 rgba(27, 57, 108, 0.15);
+}
+
+.soft-panel {
+    background-color: rgba(245, 248, 255, 0.95);
+    border-radius: 14;
+    border-width: 1;
+    border-color: rgba(196, 214, 242, 0.8);
+}
+
+.title {
+    font-size: 22;
+    font-weight: 800;
+    color: var(--text-main);
+}
+
+.section-title {
+    font-size: 16;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.subtitle {
+    font-size: 13;
+    color: var(--text-muted);
+}
+
+.item-title {
+    font-size: 15;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.item-price {
+    font-size: 13;
+    color: var(--text-muted);
+}
+
+.emoji {
+    font-size: 28;
+}
+
+.chip {
+    font-size: 11;
+    font-weight: 700;
+    border-radius: 12;
+    padding: 6 10;
+}
+
+.chip-success {
+    color: #0d7a41;
+    background-color: rgba(38, 196, 101, 0.18);
+}
+
+.chip-danger {
+    color: #a72e2e;
+    background-color: rgba(226, 86, 86, 0.18);
+}
+
+.status-success {
+    background-color: rgba(38, 196, 101, 0.16);
+}
+
+.status-danger {
+    background-color: rgba(226, 86, 86, 0.16);
+}
+
+.qty-box {
+    vertical-align: center;
+}
+
+.qty-controls {
+    horizontal-align: right;
+}
+
+.qty-btn {
+    min-width: 36;
+    padding: 0;
+    border-radius: 10;
+    background-color: rgba(53, 110, 220, 0.16);
+    color: var(--brand-primary-strong);
+    font-size: 18;
+    font-weight: 700;
+}
+
+.qty-label {
+    min-width: 24;
+    text-align: center;
+    font-size: 16;
+    font-weight: 700;
+}
+
+.subtotal {
+    margin-top: 6;
+    text-align: right;
+    font-size: 12;
+    color: var(--text-muted);
+}
+
+.total {
+    margin-top: 8;
+    font-size: 24;
+    font-weight: 800;
+    color: var(--brand-primary-strong);
+}
+
+.action-primary,
+.action-secondary,
+.action-warn,
+.action-danger {
+    border-radius: 14;
+    font-size: 14;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.action-primary {
+    background-color: var(--brand-primary);
+    color: #ffffff;
+}
+
+.action-secondary {
+    background-color: rgba(37, 71, 133, 0.14);
+    color: var(--brand-primary-strong);
+}
+
+.action-warn {
+    background-color: rgba(225, 160, 32, 0.85);
+    color: #ffffff;
+}
+
+.action-danger {
+    background-color: rgba(214, 57, 57, 0.9);
+    color: #ffffff;
+}
+
+.modal-overlay {
+    background-color: rgba(7, 18, 40, 0.5);
+    vertical-align: center;
+    horizontal-align: center;
+}
+
+.modal-card {
+    width: 92%;
+    max-width: 420;
+    border-radius: 20;
+    background-color: rgba(255, 255, 255, 0.95);
+    border-width: 1;
+    border-color: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 12 28 rgba(10, 29, 69, 0.22);
+}
+
+.operator-input {
+    border-width: 1;
+    border-color: rgba(40, 80, 143, 0.35);
+    border-radius: 12;
+    background-color: rgba(255, 255, 255, 0.9);
+    color: var(--text-main);
+    padding: 10 12;
 }

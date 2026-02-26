@@ -1,5 +1,5 @@
 import { createApp } from 'nativescript-vue'
 
-import Home from './components/Home.vue'
+import AppShell from './components/AppShell.vue'
 
-createApp(Home).start()
+createApp(AppShell).start()
