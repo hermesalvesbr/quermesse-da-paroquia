@@ -148,3 +148,31 @@ ns run android --no-hmr
 # Rodar em device específico
 ns run android --no-hmr --device emulator-5554
 ```
+
+---
+
+## Entrega de APK (organizado)
+
+Para facilitar acesso ao APK, o projeto agora copia o arquivo final para:
+
+- `artifacts/apk/quermesse-da-paroquia-v<versao>.apk`
+- `artifacts/apk/quermesse-da-paroquia-latest.apk`
+
+### Gerar e organizar APK
+
+```bash
+npm run apk:build
+```
+
+### Publicar no GitHub Releases (com tag)
+
+```bash
+npm run release:github
+```
+
+Esse comando:
+
+1. lê a versão atual do `package.json` (ex.: `1.0.0`)
+2. usa o tag `v<versao>` (ex.: `v1.0.0`)
+3. cria o release no GitHub e envia o APK
+4. se o release já existir, faz upload/substituição do APK
