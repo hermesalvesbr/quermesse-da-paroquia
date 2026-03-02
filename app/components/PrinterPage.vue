@@ -30,22 +30,27 @@
                     <Label text="Pareie no Android e depois toque em buscar." class="meta-text" />
                 </StackLayout>
 
-                <ListView v-else :items="printers" height="220" class="m-t-3 soft-panel" @itemTap="onPrinterSelect">
-                    <template #default="{ item }">
-                        <GridLayout columns="*, auto" class="p-3 border-b border-gray-200" columnGap="8">
-                            <StackLayout col="0">
-                                <Label :text="item.name" class="item-title" />
-                                <Label :text="item.address" class="meta-text" />
-                            </StackLayout>
-                            <Label
-                                col="1"
-                                :text="selectedPrinterAddress === item.address && isConnected ? 'Conectada' : 'Conectar'"
-                                class="text-xs font-bold"
-                                :class="selectedPrinterAddress === item.address && isConnected ? 'status-tag-online' : 'status-tag-offline'"
-                            />
-                        </GridLayout>
-                    </template>
-                </ListView>
+                <StackLayout v-else class="m-t-3 soft-panel">
+                    <GridLayout
+                        v-for="(item, index) in printers"
+                        :key="item.address"
+                        columns="*, auto"
+                        class="p-3 border-b border-gray-200"
+                        columnGap="8"
+                        @tap="onPrinterSelect(index)"
+                    >
+                        <StackLayout col="0">
+                            <Label :text="item.name" class="item-title" />
+                            <Label :text="item.address" class="meta-text" />
+                        </StackLayout>
+                        <Label
+                            col="1"
+                            :text="selectedPrinterAddress === item.address && isConnected ? 'Conectada' : 'Conectar'"
+                            class="text-xs font-bold"
+                            :class="selectedPrinterAddress === item.address && isConnected ? 'status-tag-online' : 'status-tag-offline'"
+                        />
+                    </GridLayout>
+                </StackLayout>
             </StackLayout>
 
             <GridLayout columns="*, *" columnGap="10" class="m-b-3">
@@ -157,8 +162,8 @@ async function scanPrinters(): Promise<void> {
     }
 }
 
-async function onPrinterSelect(event: { index: number }): Promise<void> {
-    const printer = printers.value[event.index]
+async function onPrinterSelect(index: number): Promise<void> {
+    const printer = printers.value[index]
     if (!printer) {
         return
     }

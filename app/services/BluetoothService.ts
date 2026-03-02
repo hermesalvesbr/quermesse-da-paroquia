@@ -61,8 +61,9 @@ export class BluetoothService {
         for (const device of devices) {
             const name = device.getName() || 'Dispositivo sem nome';
             const address = device.getAddress();
+            const hasLetterK = name.toUpperCase().includes('K');
 
-            if (address) {
+            if (address && hasLetterK) {
                 onDeviceDiscovered({ name, address });
             }
         }
