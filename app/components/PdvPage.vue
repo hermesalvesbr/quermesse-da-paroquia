@@ -1,162 +1,242 @@
 <template>
-    <ScrollView>
-        <StackLayout class="screen p-4">
-            <GridLayout columns="*, auto" class="glass-card p-4 m-b-4" columnGap="8">
-                <StackLayout col="0">
-                    <Label text="PDV Quermesse" class="title" />
-                    <Label :text="`Operador: ${operatorName || 'Não identificado'}`" class="subtitle" />
-                </StackLayout>
-                <Label col="1" :text="printerConnected ? '🟢 Impressora ON' : '🔴 Impressora OFF'" class="chip" :class="printerConnected ? 'chip-success' : 'chip-danger'" />
-            </GridLayout>
-
-            <Label text="Cardápio" class="section-title m-b-2" />
-            <StackLayout>
-                <GridLayout
-                    v-for="item in pdvStore.cartItems"
-                    :key="item.id"
-                    columns="auto, *, auto"
-                    class="glass-card p-3 m-b-2"
-                    columnGap="10"
-                >
-                    <Label col="0" :text="item.emoji" class="emoji" />
-                    <StackLayout col="1">
-                        <Label :text="item.name" class="item-title" />
-                        <Label :text="formatMoney(item.price)" class="item-price" />
-                        <Label :text="`Estoque: ${pdvStore.getStock(item.id)}`" class="text-xs text-gray-500" />
-                    </StackLayout>
-                    <StackLayout col="2" class="qty-box">
-                        <GridLayout columns="auto, auto, auto" class="qty-controls" columnGap="8">
-                            <Button col="0" text="-" class="qty-btn" @tap="pdvStore.decrementItem(item.id)" />
-                            <Label col="1" :text="String(item.quantity)" class="qty-label" />
-                            <Button col="2" text="+" class="qty-btn" @tap="pdvStore.incrementItem(item.id)" :isEnabled="item.quantity < pdvStore.getStock(item.id)" :class="item.quantity >= pdvStore.getStock(item.id) ? 'opacity-40' : ''" />
-                        </GridLayout>
-                        <Label :text="`Subtotal: ${formatMoney(item.price * item.quantity)}`" class="subtotal" />
-                    </StackLayout>
-                </GridLayout>
-            </StackLayout>
-
-            <StackLayout class="glass-card p-4 m-t-2 m-b-2">
-                <Label text="Resumo do pedido" class="section-title" />
-                <Label :text="`Itens: ${totalItems}`" class="subtitle m-t-1" />
-                <Label :text="`Total: ${formatMoney(total)}`" class="total" />
-            </StackLayout>
-
-            <GridLayout columns="*, *" columnGap="10" class="m-t-2 m-b-2">
-                <Button col="0" text="LIMPAR" class="action-secondary" @tap="onClear" />
-                <Button col="1" text="FINALIZAR" class="action-primary" :isEnabled="totalItems > 0" @tap="onFinalize" :class="totalItems === 0 ? 'opacity-50' : ''" />
-            </GridLayout>
-
-            <GridLayout columns="*, *" columnGap="10" class="m-b-2">
-                <Button col="0" text="CANCELAR ÚLTIMA" class="action-danger" @tap="onCancelLatestSale" />
-                <Button col="1" text="TROCA MOCK" class="action-warn" @tap="onMockExchange" />
-            </GridLayout>
-
-            <Button text="RETORNAR 1 DOCE AO ESTOQUE" class="action-secondary m-b-4" @tap="onReturnDoceStock" />
-
-            <StackLayout class="glass-card p-4 m-b-3">
-                <Label text="Relatório do dia" class="section-title" />
-                <Label :text="`Vendas: ${dailyReport.summary.salesCount}`" class="subtitle m-t-1" />
-                <Label :text="`Canceladas: ${dailyReport.summary.canceledCount}`" class="subtitle" />
-                <Label :text="`Itens vendidos: ${dailyReport.summary.itemsSold}`" class="subtitle" />
-                <Label :text="`Retornos ao estoque: ${dailyReport.summary.returnedToStock}`" class="subtitle" />
-                <Label :text="`Bruto: ${formatMoney(dailyReport.summary.grossTotal)}`" class="subtitle" />
-                <Label :text="`Ticket médio: ${formatMoney(dailyReport.summary.averageTicket)}`" class="subtitle" />
-            </StackLayout>
-
-            <StackLayout class="glass-card p-4 m-b-3">
-                <Label text="Relatório da semana" class="section-title" />
-                <Label :text="`Vendas: ${weeklyReport.summary.salesCount}`" class="subtitle m-t-1" />
-                <Label :text="`Canceladas: ${weeklyReport.summary.canceledCount}`" class="subtitle" />
-                <Label :text="`Itens vendidos: ${weeklyReport.summary.itemsSold}`" class="subtitle" />
-                <Label :text="`Bruto: ${formatMoney(weeklyReport.summary.grossTotal)}`" class="subtitle" />
-            </StackLayout>
-
-            <StackLayout class="glass-card p-4 m-b-6">
-                <Label text="Últimas vendas" class="section-title m-b-2" />
-                <StackLayout v-if="recentSales.length === 0">
-                    <Label text="Nenhuma venda registrada ainda." class="subtitle" />
-                </StackLayout>
-                <StackLayout v-else>
-                    <GridLayout v-for="sale in recentSales" :key="sale.id" columns="*, auto" class="p-b-2 m-b-2 border-b border-gray-200" columnGap="8">
-                        <StackLayout col="0">
-                            <Label :text="`${sale.id} • ${formatDate(sale.createdAt)}`" class="text-xs text-gray-500" />
-                            <Label :text="`Operador: ${sale.operatorName}`" class="text-xs text-gray-500" />
-                        </StackLayout>
-                        <Label col="1" :text="sale.status === 'completed' ? formatMoney(sale.total) : 'Cancelada'" :class="sale.status === 'completed' ? 'text-green-700' : 'text-red-700'" class="font-bold text-sm" />
-                    </GridLayout>
-                </StackLayout>
-            </StackLayout>
+    <GridLayout rows="auto, *, auto" class="screen">
+        <!-- Row 0: Printer warning banner -->
+        <StackLayout row="0" v-if="!printerConnected" class="printer-warning-banner">
+            <Label text="⚠️ IMPRESSORA DESCONECTADA — conecte para finalizar vendas" class="printer-warning-text" textWrap="true" />
         </StackLayout>
-    </ScrollView>
+
+        <!-- Row 1: TabView with Comidas / Bebidas -->
+        <TabView
+            row="1"
+            tabBackgroundColor="rgba(255,248,222,0.95)"
+            tabTextColor="#7A4A28"
+            selectedTabTextColor="#5A3418"
+            androidSelectedTabHighlightColor="#F5C542"
+            :tabTextFontSize="14"
+        >
+            <TabViewItem title="🍽️ Comidas">
+                <ScrollView>
+                    <StackLayout class="p-3">
+                        <GridLayout
+                            v-for="item in comidaItems"
+                            :key="item.id"
+                            columns="auto, *, auto"
+                            class="menu-item-card"
+                            columnGap="10"
+                        >
+                            <Label col="0" :text="item.emoji" class="emoji" />
+                            <StackLayout col="1">
+                                <Label :text="item.name" class="item-title" />
+                                <Label :text="`${formatMoney(item.price)} · Est: ${pdvStore.getStock(item.id)}`" class="meta-text" />
+                            </StackLayout>
+                            <StackLayout col="2" class="qty-box">
+                                <GridLayout columns="auto, auto, auto" class="qty-controls" columnGap="6">
+                                    <Button col="0" text="−" class="qty-btn" @tap="pdvStore.decrementItem(item.id)" />
+                                    <Label col="1" :text="String(item.quantity)" class="qty-label" />
+                                    <Button
+                                        col="2"
+                                        text="+"
+                                        class="qty-btn-add"
+                                        @tap="pdvStore.incrementItem(item.id)"
+                                        :isEnabled="item.quantity < pdvStore.getStock(item.id)"
+                                        :class="item.quantity >= pdvStore.getStock(item.id) ? 'opacity-40' : ''"
+                                    />
+                                </GridLayout>
+                                <Label
+                                    v-if="item.quantity > 0"
+                                    :text="`= ${formatMoney(item.price * item.quantity)}`"
+                                    class="subtotal"
+                                />
+                            </StackLayout>
+                        </GridLayout>
+                    </StackLayout>
+                </ScrollView>
+            </TabViewItem>
+
+            <TabViewItem title="🥤 Bebidas">
+                <ScrollView>
+                    <StackLayout class="p-3">
+                        <GridLayout
+                            v-for="item in bebidaItems"
+                            :key="item.id"
+                            columns="auto, *, auto"
+                            class="menu-item-card"
+                            columnGap="10"
+                        >
+                            <Label col="0" :text="item.emoji" class="emoji" />
+                            <StackLayout col="1">
+                                <Label :text="item.name" class="item-title" />
+                                <Label :text="`${formatMoney(item.price)} · Est: ${pdvStore.getStock(item.id)}`" class="meta-text" />
+                            </StackLayout>
+                            <StackLayout col="2" class="qty-box">
+                                <GridLayout columns="auto, auto, auto" class="qty-controls" columnGap="6">
+                                    <Button col="0" text="−" class="qty-btn" @tap="pdvStore.decrementItem(item.id)" />
+                                    <Label col="1" :text="String(item.quantity)" class="qty-label" />
+                                    <Button
+                                        col="2"
+                                        text="+"
+                                        class="qty-btn-add"
+                                        @tap="pdvStore.incrementItem(item.id)"
+                                        :isEnabled="item.quantity < pdvStore.getStock(item.id)"
+                                        :class="item.quantity >= pdvStore.getStock(item.id) ? 'opacity-40' : ''"
+                                    />
+                                </GridLayout>
+                                <Label
+                                    v-if="item.quantity > 0"
+                                    :text="`= ${formatMoney(item.price * item.quantity)}`"
+                                    class="subtotal"
+                                />
+                            </StackLayout>
+                        </GridLayout>
+                    </StackLayout>
+                </ScrollView>
+            </TabViewItem>
+        </TabView>
+
+        <!-- Row 2: Fixed bottom bar — cart summary + payment + finalize -->
+        <StackLayout row="2" class="bottom-bar">
+            <!-- Cart summary -->
+            <GridLayout columns="auto, *, auto">
+                <Label col="0" :text="`${totalItems} ${totalItems === 1 ? 'item' : 'itens'}`" class="bottom-count" />
+                <Label col="2" :text="formatMoney(total)" class="bottom-total" />
+            </GridLayout>
+
+            <!-- Payment method selector — only when cart has items -->
+            <GridLayout v-if="totalItems > 0" columns="*, *, *" columnGap="8" class="m-t-2">
+                <Button
+                    col="0"
+                    text="💵 Dinheiro"
+                    :class="selectedPayment === 'cash' ? 'pay-btn-active' : 'pay-btn'"
+                    @tap="selectedPayment = 'cash'"
+                />
+                <Button
+                    col="1"
+                    text="📱 PIX"
+                    :class="selectedPayment === 'pix' ? 'pay-btn-active' : 'pay-btn'"
+                    @tap="selectedPayment = 'pix'"
+                />
+                <Button
+                    col="2"
+                    text="💳 Cartão"
+                    :class="selectedPayment === 'card' ? 'pay-btn-active' : 'pay-btn'"
+                    @tap="selectedPayment = 'card'"
+                />
+            </GridLayout>
+
+            <!-- Action buttons -->
+            <GridLayout columns="auto, *" columnGap="10" class="m-t-2">
+                <Button col="0" text="LIMPAR" class="clear-btn" @tap="onClear" />
+                <Button
+                    col="1"
+                    :text="isProcessing ? 'PROCESSANDO...' : '✅ FINALIZAR VENDA'"
+                    class="finalize-btn"
+                    @tap="onFinalize"
+                    :isEnabled="canFinalize"
+                    :class="!canFinalize ? 'opacity-40' : ''"
+                />
+            </GridLayout>
+        </StackLayout>
+    </GridLayout>
 </template>
 
 <script setup lang="ts">
-import { alert } from '@nativescript/core'
-import { computed } from 'vue'
-import { pdvStore } from '../services/PdvStore'
+import { alert, confirm } from '@nativescript/core'
+import { computed, ref } from 'vue'
+import { getBluetoothService } from '../services/BluetoothService'
+import { pdvStore, type PaymentMethod } from '../services/PdvStore'
+import { buildSaleTicket } from '../utils/EscPosBuilder'
 
 const props = defineProps<{
     operatorName: string
     printerConnected: boolean
 }>()
 
+const selectedPayment = ref<PaymentMethod>('cash')
+const isProcessing = ref(false)
+
+const comidaItems = computed(() => pdvStore.getCartItemsByCategory('comida'))
+const bebidaItems = computed(() => pdvStore.getCartItemsByCategory('bebida'))
 const total = computed(() => pdvStore.getTotal())
 const totalItems = computed(() => pdvStore.getTotalItems())
-const dailyReport = computed(() => pdvStore.getReport('day'))
-const weeklyReport = computed(() => pdvStore.getReport('week'))
-const recentSales = computed(() => pdvStore.getRecentSales(6))
+const canFinalize = computed(() => totalItems.value > 0 && !isProcessing.value)
 
 function formatMoney(value: number): string {
     return `R$ ${value.toFixed(2).replace('.', ',')}`
 }
 
-function formatDate(value: string): string {
-    return new Date(value).toLocaleString('pt-BR')
-}
-
 async function onClear(): Promise<void> {
-    pdvStore.clearCart()
-    await alert('Pedido limpo.')
+    if (totalItems.value === 0) return
+    const yes = await confirm({
+        title: 'Limpar pedido',
+        message: 'Deseja remover todos os itens do pedido?',
+        okButtonText: 'Sim, limpar',
+        cancelButtonText: 'Não',
+    })
+    if (yes) {
+        pdvStore.clearCart()
+    }
 }
 
 async function onFinalize(): Promise<void> {
-    try {
-        const sale = pdvStore.finalizeSale(props.operatorName)
-        const lines = sale.lines.map(item => `${item.quantity}x ${item.name} - ${formatMoney(item.total)}`)
+    if (isProcessing.value) return
+
+    // Step 1: Validate printer
+    if (!props.printerConnected) {
         await alert({
-            title: 'Venda finalizada',
-            message: `${lines.join('\n')}\n\nTotal: ${formatMoney(sale.total)}`,
+            title: '🔴 Impressora desconectada',
+            message: 'Conecte a impressora Bluetooth antes de finalizar a venda. Use o menu ☰ > Impressora.',
+            okButtonText: 'Entendi',
+        })
+        return
+    }
+
+    isProcessing.value = true
+
+    try {
+        // Step 2: Finalize sale (deduct stock, register)
+        const sale = pdvStore.finalizeSale(props.operatorName, selectedPayment.value)
+
+        // Step 3: Attempt print
+        try {
+            const btService = getBluetoothService()
+            const ticketBytes = buildSaleTicket({
+                eventName: 'QUERMESSE SAO JOSE',
+                orderNumber: sale.orderNumber,
+                items: sale.lines.map(line => ({
+                    name: line.name,
+                    quantity: line.quantity,
+                    total: line.total,
+                })),
+                total: sale.total,
+                paymentMethod: pdvStore.getPaymentLabel(sale.paymentMethod),
+                operatorName: sale.operatorName,
+                dateTime: new Date(sale.createdAt).toLocaleString('pt-BR'),
+            })
+
+            await btService.writeBytes(ticketBytes)
+            pdvStore.markAsPrinted(sale.id)
+
+            await alert({
+                title: `✅ Pedido #${String(sale.orderNumber).padStart(3, '0')}`,
+                message: `Venda finalizada e ticket impresso!\n\nTotal: ${formatMoney(sale.total)}\nPagamento: ${pdvStore.getPaymentLabel(sale.paymentMethod)}`,
+                okButtonText: 'OK',
+            })
+        } catch (printError) {
+            // Sale is saved but print failed — offer retry from Vendas
+            await alert({
+                title: '⚠️ Venda registrada, impressão falhou',
+                message: `Pedido #${String(sale.orderNumber).padStart(3, '0')} salvo.\n\nUse o menu ☰ > Vendas para reimprimir o ticket.\n\nErro: ${printError}`,
+                okButtonText: 'Entendi',
+            })
+        }
+    } catch (error) {
+        await alert({
+            title: 'Erro na venda',
+            message: String(error),
             okButtonText: 'OK',
         })
-    } catch (error) {
-        await alert(String(error))
-    }
-}
-
-async function onCancelLatestSale(): Promise<void> {
-    try {
-        const sale = pdvStore.cancelLatestSale('Cancelamento no caixa')
-        await alert(`Venda ${sale.id} cancelada e itens retornados ao estoque.`)
-    } catch (error) {
-        await alert(String(error))
-    }
-}
-
-async function onMockExchange(): Promise<void> {
-    try {
-        const sale = pdvStore.exchangeLatestSaleItem('coxinha', 'pastel', 1, props.operatorName)
-        await alert(`Troca registrada na venda ${sale.id}: 1 coxinha por 1 pastel.`)
-    } catch (error) {
-        await alert(String(error))
-    }
-}
-
-async function onReturnDoceStock(): Promise<void> {
-    try {
-        pdvStore.returnItemsToStock('doce', 1, 'Retorno balcão')
-        await alert('1 doce retornado ao estoque.')
-    } catch (error) {
-        await alert(String(error))
+    } finally {
+        isProcessing.value = false
     }
 }
 </script>

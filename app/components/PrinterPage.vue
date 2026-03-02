@@ -1,21 +1,21 @@
 <template>
     <ScrollView>
         <StackLayout class="screen p-4">
-            <StackLayout class="glass-card p-4 m-b-4">
+            <StackLayout class="glass-card">
                 <Label text="Impressora Bluetooth" class="title" />
                 <Label text="Modelo alvo: KA-1445 / POS-printer" class="subtitle" />
 
                 <GridLayout columns="auto, *" class="m-t-3 p-3 rounded-xl" :class="isConnected ? 'status-success' : 'status-danger'" columnGap="8">
                     <Label col="0" :text="isConnected ? '🟢' : '🔴'" class="text-lg" />
                     <StackLayout col="1">
-                        <Label class="font-bold" :class="isConnected ? 'text-green-800' : 'text-red-800'" :text="isConnected ? 'Conectada' : 'Desconectada'" />
+                        <Label class="font-bold" :class="isConnected ? 'status-text-online' : 'status-text-offline'" :text="isConnected ? 'Conectada' : 'Desconectada'" />
                         <Label :text="connectedSubtitle" class="text-xs" textWrap="true" />
                     </StackLayout>
                 </GridLayout>
             </StackLayout>
 
-            <StackLayout class="glass-card p-4 m-b-4">
-                <Label text="Dispositivos pareados" class="section-title m-b-2" />
+            <StackLayout class="glass-card">
+                <Label text="Dispositivos pareados" class="section-title" />
 
                 <Button
                     :text="isScanning ? 'Buscando impressoras...' : 'Buscar impressoras Bluetooth'"
@@ -27,7 +27,7 @@
 
                 <StackLayout v-if="printers.length === 0" class="m-t-3 p-3 soft-panel">
                     <Label text="Nenhuma impressora listada." class="subtitle" />
-                    <Label text="Pareie no Android e depois toque em buscar." class="text-xs text-gray-500" />
+                    <Label text="Pareie no Android e depois toque em buscar." class="meta-text" />
                 </StackLayout>
 
                 <ListView v-else :items="printers" height="220" class="m-t-3 soft-panel" @itemTap="onPrinterSelect">
@@ -35,13 +35,13 @@
                         <GridLayout columns="*, auto" class="p-3 border-b border-gray-200" columnGap="8">
                             <StackLayout col="0">
                                 <Label :text="item.name" class="item-title" />
-                                <Label :text="item.address" class="text-xs text-gray-500" />
+                                <Label :text="item.address" class="meta-text" />
                             </StackLayout>
                             <Label
                                 col="1"
                                 :text="selectedPrinterAddress === item.address && isConnected ? 'Conectada' : 'Conectar'"
                                 class="text-xs font-bold"
-                                :class="selectedPrinterAddress === item.address && isConnected ? 'text-green-700' : 'text-blue-700'"
+                                :class="selectedPrinterAddress === item.address && isConnected ? 'status-tag-online' : 'status-tag-offline'"
                             />
                         </GridLayout>
                     </template>
@@ -68,7 +68,7 @@
                 />
             </GridLayout>
 
-            <StackLayout class="glass-card p-4 m-b-2">
+            <StackLayout class="glass-card">
                 <Label text="Teste de impressão" class="section-title" />
                 <Label text="Envia um cupom simples para validar a conexão." class="subtitle" />
                 <Button text="IMPRIMIR TESTE" class="action-primary m-t-3" :isEnabled="isConnected" :class="!isConnected ? 'opacity-50' : ''" @tap="printTest" />
@@ -76,7 +76,7 @@
 
             <StackLayout class="soft-panel p-3 m-b-6">
                 <Label text="Status" class="text-sm font-bold" />
-                <Label :text="statusMessage" class="text-xs text-gray-600" textWrap="true" />
+                <Label :text="statusMessage" class="meta-text" textWrap="true" />
             </StackLayout>
         </StackLayout>
     </ScrollView>
@@ -85,14 +85,15 @@
 <script setup lang="ts">
 import { alert } from '@nativescript/core'
 import { computed, onMounted, ref } from 'vue'
-import { BluetoothService, type BluetoothPrinter } from '../services/BluetoothService'
+import { getBluetoothService, type BluetoothPrinter } from '../services/BluetoothService'
+import { ensureBluetoothPermissions } from '../utils/BluetoothPermissions'
 import { EscPosBuilder } from '../utils/EscPosBuilder'
 
 const emit = defineEmits<{
     (e: 'connectionChanged', connected: boolean): void
 }>()
 
-const btService = new BluetoothService()
+const btService = getBluetoothService()
 const printers = ref<BluetoothPrinter[]>([])
 const isConnected = ref(false)
 const selectedPrinterName = ref('')
@@ -129,6 +130,13 @@ onMounted(async () => {
 })
 
 async function scanPrinters(): Promise<void> {
+    // Guard: verificar permissões Bluetooth antes de buscar
+    const hasPermission = await ensureBluetoothPermissions()
+    if (!hasPermission) {
+        await alert('Permissões Bluetooth não concedidas. Vá em Configurações para solicitá-las.')
+        return
+    }
+
     printers.value = []
     isScanning.value = true
 

@@ -221,3 +221,13 @@ export class BluetoothService {
         }
     }
 }
+
+// ── Shared singleton instance ──
+let _instance: BluetoothService | null = null;
+
+export function getBluetoothService(): BluetoothService {
+    if (!_instance) {
+        _instance = new BluetoothService();
+    }
+    return _instance;
+}

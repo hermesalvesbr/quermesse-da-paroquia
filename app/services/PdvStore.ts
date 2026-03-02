@@ -1,11 +1,14 @@
 import { ApplicationSettings } from '@nativescript/core'
 import { reactive } from 'vue'
 
+export type ItemCategory = 'comida' | 'bebida'
+
 export interface MenuItem {
     id: string
     name: string
     price: number
     emoji: string
+    category: ItemCategory
 }
 
 export interface InventoryItem extends MenuItem {
@@ -14,6 +17,7 @@ export interface InventoryItem extends MenuItem {
 
 export interface CartItem extends MenuItem {
     quantity: number
+    category: ItemCategory
 }
 
 export interface SaleLine {
@@ -33,12 +37,17 @@ export interface SaleExchange {
     difference: number
 }
 
+export type PaymentMethod = 'cash' | 'pix' | 'card'
+export type PrintStatus = 'printed' | 'pending'
+
 export interface SaleRecord {
     id: string
+    orderNumber: number
     createdAt: string
     operatorName: string
-    paymentMethod: 'cash' | 'pix' | 'card'
+    paymentMethod: PaymentMethod
     status: 'completed' | 'canceled'
+    printStatus: PrintStatus
     lines: SaleLine[]
     total: number
     canceledAt?: string
@@ -101,14 +110,18 @@ const SALES_STORAGE_KEY = 'pdv.sales'
 const STOCK_MOVEMENTS_STORAGE_KEY = 'pdv.stock.movements'
 const CASH_MOVEMENTS_STORAGE_KEY = 'pdv.cash.movements'
 const SHIFTS_STORAGE_KEY = 'pdv.shifts'
+const ORDER_COUNTER_KEY = 'pdv.order.counter'
+const ORDER_COUNTER_DATE_KEY = 'pdv.order.counter.date'
 
 const initialInventory: InventoryItem[] = [
-    { id: 'coxinha', name: 'Coxinha', price: 8, emoji: '🍗', stock: 60 },
-    { id: 'pastel', name: 'Pastel', price: 10, emoji: '🥟', stock: 55 },
-    { id: 'caldo', name: 'Caldo', price: 12, emoji: '🍲', stock: 40 },
-    { id: 'milho', name: 'Milho Cozido', price: 7, emoji: '🌽', stock: 45 },
-    { id: 'refrigerante', name: 'Refrigerante', price: 6, emoji: '🥤', stock: 80 },
-    { id: 'doce', name: 'Doce Caseiro', price: 5, emoji: '🍬', stock: 70 },
+    { id: 'coxinha', name: 'Coxinha', price: 8, emoji: '🍗', stock: 60, category: 'comida' },
+    { id: 'pastel', name: 'Pastel', price: 10, emoji: '🥟', stock: 55, category: 'comida' },
+    { id: 'caldo', name: 'Caldo', price: 12, emoji: '🍲', stock: 40, category: 'comida' },
+    { id: 'milho', name: 'Milho Cozido', price: 7, emoji: '🌽', stock: 45, category: 'comida' },
+    { id: 'refrigerante', name: 'Refrigerante', price: 6, emoji: '🥤', stock: 80, category: 'bebida' },
+    { id: 'suco', name: 'Suco Natural', price: 7, emoji: '🧃', stock: 60, category: 'bebida' },
+    { id: 'agua', name: 'Água', price: 3, emoji: '💧', stock: 100, category: 'bebida' },
+    { id: 'doce', name: 'Doce Caseiro', price: 5, emoji: '🍬', stock: 70, category: 'comida' },
 ]
 
 function parseStoredList<T>(storageKey: string): T[] {
@@ -150,6 +163,7 @@ function normalizeInventory(items: unknown[]): InventoryItem[] {
             emoji: typeof value.emoji === 'string' ? value.emoji : base.emoji,
             price: Number.isFinite(value.price) ? Number(value.price) : base.price,
             stock: Number.isFinite(value.stock) ? Math.max(0, Number(value.stock)) : base.stock,
+            category: (value as Record<string, unknown>).category === 'bebida' ? 'bebida' as const : base.category,
         })
     }
 
@@ -192,10 +206,12 @@ function normalizeSales(items: unknown[]): SaleRecord[] {
 
         normalized.push({
             id: value.id,
+            orderNumber: Number.isFinite((value as Record<string, unknown>).orderNumber) ? Number((value as Record<string, unknown>).orderNumber) : 0,
             createdAt: typeof value.createdAt === 'string' ? value.createdAt : new Date().toISOString(),
             operatorName: typeof value.operatorName === 'string' ? value.operatorName : 'Operador',
             paymentMethod: value.paymentMethod === 'pix' || value.paymentMethod === 'card' ? value.paymentMethod : 'cash',
             status: value.status === 'canceled' ? 'canceled' : 'completed',
+            printStatus: (value as Record<string, unknown>).printStatus === 'printed' ? 'printed' as const : 'pending' as const,
             lines,
             total: Number.isFinite(value.total) ? Math.max(0, Number(value.total)) : lines.reduce((sum, line) => sum + line.total, 0),
             canceledAt: typeof value.canceledAt === 'string' ? value.canceledAt : undefined,
@@ -254,8 +270,24 @@ const cartItems = reactive<CartItem[]>(inventoryItems.map(item => ({
     name: item.name,
     price: item.price,
     emoji: item.emoji,
+    category: item.category,
     quantity: 0,
 })))
+
+function getNextOrderNumber(): number {
+    const today = new Date().toISOString().slice(0, 10)
+    const storedDate = ApplicationSettings.getString(ORDER_COUNTER_DATE_KEY, '')
+    let counter = ApplicationSettings.getNumber(ORDER_COUNTER_KEY, 0)
+
+    if (storedDate !== today) {
+        counter = 0
+        ApplicationSettings.setString(ORDER_COUNTER_DATE_KEY, today)
+    }
+
+    counter += 1
+    ApplicationSettings.setNumber(ORDER_COUNTER_KEY, counter)
+    return counter
+}
 
 function saveState(): void {
     ApplicationSettings.setString(INVENTORY_STORAGE_KEY, JSON.stringify(inventoryItems))
@@ -346,7 +378,7 @@ function buildCurrentSaleLines(): SaleLine[] {
         }))
 }
 
-function finalizeSale(operatorName: string, paymentMethod: 'cash' | 'pix' | 'card' = 'cash'): SaleRecord {
+function finalizeSale(operatorName: string, paymentMethod: PaymentMethod = 'cash'): SaleRecord {
     if (getTotalItems() <= 0) {
         throw new Error('Adicione itens para finalizar a venda.')
     }
@@ -378,10 +410,12 @@ function finalizeSale(operatorName: string, paymentMethod: 'cash' | 'pix' | 'car
 
     const sale: SaleRecord = {
         id: `V-${Date.now()}`,
+        orderNumber: getNextOrderNumber(),
         createdAt: new Date().toISOString(),
         operatorName: operatorName.trim() || 'Operador',
         paymentMethod,
         status: 'completed',
+        printStatus: 'pending',
         lines,
         total: lines.reduce((sum, line) => sum + line.total, 0),
         exchanges: [],
@@ -744,6 +778,36 @@ function getLatestShift(): ShiftSession | null {
     return shifts.length > 0 ? shifts[0] : null
 }
 
+function markAsPrinted(saleId: string): void {
+    const sale = sales.find(entry => entry.id === saleId)
+    if (sale) {
+        sale.printStatus = 'printed'
+        saveState()
+    }
+}
+
+function getPendingPrintSales(): SaleRecord[] {
+    return sales.filter(sale => sale.status === 'completed' && sale.printStatus === 'pending')
+}
+
+function getCartItemsByCategory(category: ItemCategory): CartItem[] {
+    return cartItems.filter(item => item.category === category)
+}
+
+function getSaleById(saleId: string): SaleRecord | undefined {
+    return sales.find(entry => entry.id === saleId)
+}
+
+const PAYMENT_LABELS: Record<PaymentMethod, string> = {
+    cash: 'Dinheiro',
+    pix: 'PIX',
+    card: 'Cartão',
+}
+
+function getPaymentLabel(method: PaymentMethod): string {
+    return PAYMENT_LABELS[method] || method
+}
+
 export const pdvStore = {
     inventoryItems,
     cartItems,
@@ -773,4 +837,9 @@ export const pdvStore = {
     addCashSupply,
     addCashWithdrawal,
     getCashBalance,
+    markAsPrinted,
+    getPendingPrintSales,
+    getCartItemsByCategory,
+    getSaleById,
+    getPaymentLabel,
 }

@@ -1,26 +1,56 @@
 @import "tailwindcss";
 
 .ns-root {
-    --brand-primary: #2d6cdf;
-    --brand-primary-strong: #1247a6;
-    --brand-accent: #56b8ff;
-    --surface-bg: #eaf2ff;
-    --glass-bg: rgba(255, 255, 255, 0.72);
-    --glass-border: rgba(255, 255, 255, 0.88);
-    --text-main: #152238;
-    --text-muted: #5e6d84;
-    --success: #1f9d58;
-    --danger: #d04444;
-    --warn: #c17b10;
+    --brand-primary: #F5C542;
+    --brand-primary-strong: #5A3418;
+    --brand-accent: #FFE08A;
+    --brand-secondary: #7A4A28;
+    --surface-bg: #FFF6D8;
+    --glass-bg: rgba(255, 255, 255, 0.25);
+    --glass-bg-dark: rgba(90, 52, 24, 0.35);
+    --glass-border: rgba(255, 224, 138, 0.78);
+    --text-main: #5A3418;
+    --text-muted: #7A4A28;
+    --success: #5A3418;
+    --danger: #7A4A28;
+    --warn: #7A4A28;
 }
 
 .app-root {
-    background: linear-gradient(145deg, #edf4ff 0%, #dbe9ff 40%, #f5f8ff 100%);
+    background: linear-gradient(145deg, #fff8de 0%, #f7d56d 44%, #ffefbc 100%);
 }
 
 ActionBar.app-actionbar {
     background-color: var(--brand-primary);
-    color: #ffffff;
+    color: var(--brand-primary-strong);
+}
+
+/* ── Custom Top Bar (replaces ActionBar) ── */
+
+.custom-topbar {
+    padding: 12 16;
+    background-color: var(--brand-primary);
+}
+
+.hamburger-btn {
+    font-size: 22;
+    font-weight: 700;
+    color: var(--brand-primary-strong);
+    vertical-align: center;
+    padding: 4 8;
+}
+
+.topbar-title {
+    font-size: 17;
+    font-weight: 800;
+    color: var(--brand-primary-strong);
+    vertical-align: center;
+}
+
+.topbar-printer-dot {
+    font-size: 18;
+    vertical-align: center;
+    padding: 4 8;
 }
 
 .screen {
@@ -32,39 +62,60 @@ ActionBar.app-actionbar {
 }
 
 .drawer {
-    width: 248;
-    background-color: rgba(16, 48, 97, 0.92);
+    background-color: rgba(58, 32, 12, 0.92);
     border-right-width: 1;
-    border-right-color: rgba(255, 255, 255, 0.12);
+    border-right-color: rgba(255, 224, 138, 0.3);
+    vertical-align: top;
 }
 
-.drawer-collapsed {
-    width: 0;
-    visibility: collapse;
+.drawer-backdrop {
+    background-color: rgba(0, 0, 0, 0.45);
 }
 
 .drawer-header {
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: rgba(255, 224, 138, 0.16);
+    padding: 16;
+    margin-bottom: 8;
 }
 
 .drawer-title {
-    color: #ffffff;
+    color: #ffeec0;
     font-size: 18;
     font-weight: 700;
 }
 
 .drawer-subtitle {
-    color: rgba(255, 255, 255, 0.75);
+    color: rgba(255, 238, 192, 0.82);
     font-size: 12;
 }
 
 .drawer-item {
     margin: 6 12;
     border-radius: 14;
-    background-color: rgba(255, 255, 255, 0.08);
-    color: #ffffff;
+    background-color: rgba(255, 224, 138, 0.16);
+    color: #fff1c8;
     font-size: 15;
     font-weight: 600;
+    padding: 14 16;
+}
+
+.drawer-item-active {
+    background-color: rgba(255, 224, 138, 0.35);
+    color: #FFE08A;
+}
+
+.drawer-section-label {
+    font-size: 10;
+    font-weight: 700;
+    color: rgba(255, 238, 192, 0.5);
+    padding: 12 18 4 18;
+    letter-spacing: 1;
+}
+
+.drawer-divider {
+    height: 1;
+    margin: 8 16;
+    background-color: rgba(255, 224, 138, 0.2);
 }
 
 .glass-card {
@@ -72,31 +123,39 @@ ActionBar.app-actionbar {
     border-width: 1;
     border-color: var(--glass-border);
     border-radius: 20;
-    box-shadow: 0 10 24 rgba(27, 57, 108, 0.15);
+    box-shadow: 0 10 24 rgba(90, 52, 24, 0.18);
+    padding: 16;
+    margin-bottom: 12;
 }
 
 .soft-panel {
-    background-color: rgba(245, 248, 255, 0.95);
+    background-color: rgba(255, 248, 222, 0.9);
     border-radius: 14;
     border-width: 1;
-    border-color: rgba(196, 214, 242, 0.8);
+    border-color: rgba(122, 74, 40, 0.3);
+    padding: 12;
+    margin-top: 8;
 }
 
 .title {
     font-size: 22;
     font-weight: 800;
     color: var(--text-main);
+    margin-bottom: 4;
 }
 
 .section-title {
     font-size: 16;
     font-weight: 700;
     color: var(--text-main);
+    margin-bottom: 6;
 }
 
 .subtitle {
     font-size: 13;
     color: var(--text-muted);
+    margin-top: 2;
+    margin-bottom: 2;
 }
 
 .item-title {
@@ -118,25 +177,26 @@ ActionBar.app-actionbar {
     font-size: 11;
     font-weight: 700;
     border-radius: 12;
-    padding: 6 10;
+    padding: 6 12;
+    margin: 4 0;
 }
 
 .chip-success {
-    color: #0d7a41;
-    background-color: rgba(38, 196, 101, 0.18);
+    color: #5A3418;
+    background-color: rgba(255, 224, 138, 0.55);
 }
 
 .chip-danger {
-    color: #a72e2e;
-    background-color: rgba(226, 86, 86, 0.18);
+    color: #FFECC0;
+    background-color: rgba(90, 52, 24, 0.5);
 }
 
 .status-success {
-    background-color: rgba(38, 196, 101, 0.16);
+    background-color: rgba(255, 224, 138, 0.42);
 }
 
 .status-danger {
-    background-color: rgba(226, 86, 86, 0.16);
+    background-color: rgba(90, 52, 24, 0.22);
 }
 
 .qty-box {
@@ -151,8 +211,8 @@ ActionBar.app-actionbar {
     min-width: 36;
     padding: 0;
     border-radius: 10;
-    background-color: rgba(53, 110, 220, 0.16);
-    color: var(--brand-primary-strong);
+    background-color: rgba(255, 224, 138, 0.6);
+    color: var(--brand-secondary);
     font-size: 18;
     font-weight: 700;
 }
@@ -186,30 +246,33 @@ ActionBar.app-actionbar {
     font-size: 14;
     font-weight: 800;
     text-transform: uppercase;
+    padding: 14 20;
+    margin-top: 8;
+    margin-bottom: 4;
 }
 
 .action-primary {
     background-color: var(--brand-primary);
-    color: #ffffff;
-}
-
-.action-secondary {
-    background-color: rgba(37, 71, 133, 0.14);
     color: var(--brand-primary-strong);
 }
 
+.action-secondary {
+    background-color: rgba(122, 74, 40, 0.2);
+    color: #4e2e18;
+}
+
 .action-warn {
-    background-color: rgba(225, 160, 32, 0.85);
-    color: #ffffff;
+    background-color: rgba(255, 224, 138, 0.88);
+    color: #4e2e18;
 }
 
 .action-danger {
-    background-color: rgba(214, 57, 57, 0.9);
-    color: #ffffff;
+    background-color: rgba(90, 52, 24, 0.82);
+    color: #fff3ce;
 }
 
 .modal-overlay {
-    background-color: rgba(7, 18, 40, 0.5);
+    background-color: rgba(90, 52, 24, 0.35);
     vertical-align: center;
     horizontal-align: center;
 }
@@ -218,17 +281,269 @@ ActionBar.app-actionbar {
     width: 92%;
     max-width: 420;
     border-radius: 20;
-    background-color: rgba(255, 255, 255, 0.95);
+    background-color: rgba(255, 248, 224, 0.95);
     border-width: 1;
-    border-color: rgba(255, 255, 255, 0.95);
-    box-shadow: 0 12 28 rgba(10, 29, 69, 0.22);
+    border-color: rgba(255, 224, 138, 0.78);
+    box-shadow: 0 12 28 rgba(90, 52, 24, 0.22);
+    padding: 24 20;
 }
 
 .operator-input {
     border-width: 1;
-    border-color: rgba(40, 80, 143, 0.35);
+    border-color: rgba(122, 74, 40, 0.36);
     border-radius: 12;
-    background-color: rgba(255, 255, 255, 0.9);
+    background-color: rgba(255, 250, 235, 0.95);
     color: var(--text-main);
+    padding: 12 14;
+    margin-top: 12;
+    margin-bottom: 8;
+    font-size: 15;
+}
+
+.meta-text {
+    font-size: 11;
+    color: rgba(122, 74, 40, 0.9);
+}
+
+.list-divider {
+    border-bottom-width: 1;
+    border-bottom-color: rgba(122, 74, 40, 0.25);
+}
+
+.status-text-online {
+    color: #5A3418;
+}
+
+.status-text-offline {
+    color: #7A4A28;
+}
+
+.status-tag-online {
+    color: #5A3418;
+}
+
+.status-tag-offline {
+    color: #7A4A28;
+}
+
+/* ── PDV TabView + Fixed Bottom Bar ── */
+
+.status-strip {
+    padding: 8 16;
+    background-color: rgba(255, 224, 138, 0.25);
+    border-bottom-width: 1;
+    border-bottom-color: rgba(255, 224, 138, 0.5);
+}
+
+.strip-text {
+    font-size: 13;
+    color: #5A3418;
+    font-weight: 600;
+    vertical-align: center;
+}
+
+.strip-chip {
+    font-size: 11;
+    font-weight: 700;
+    border-radius: 10;
+    padding: 4 10;
+    vertical-align: center;
+}
+
+.menu-item-card {
+    background-color: var(--glass-bg);
+    border-width: 1;
+    border-color: var(--glass-border);
+    border-radius: 16;
     padding: 10 12;
+    margin-bottom: 8;
+}
+
+.bottom-bar {
+    padding: 12 16 24 16;
+    background-color: rgba(255, 248, 222, 0.97);
+    border-top-width: 2;
+    border-top-color: var(--brand-primary);
+}
+
+.bottom-bar .action-primary,
+.bottom-bar .action-secondary {
+    margin-top: 0;
+    margin-bottom: 0;
+    padding: 12 16;
+}
+
+.bottom-count {
+    font-size: 14;
+    color: var(--text-muted);
+    font-weight: 600;
+    vertical-align: center;
+}
+
+.bottom-total {
+    font-size: 24;
+    font-weight: 800;
+    color: var(--brand-primary-strong);
+    vertical-align: center;
+}
+
+/* ── Printer Warning Banner ── */
+
+.printer-warning-banner {
+    background-color: rgba(180, 40, 30, 0.9);
+    padding: 10 16;
+}
+
+.printer-warning-text {
+    color: #fff;
+    font-size: 12;
+    font-weight: 700;
+    text-align: center;
+}
+
+/* ── Payment Method Buttons ── */
+
+.pay-btn {
+    border-radius: 12;
+    padding: 10 4;
+    font-size: 12;
+    font-weight: 700;
+    background-color: rgba(122, 74, 40, 0.12);
+    color: var(--text-muted);
+}
+
+.pay-btn-active {
+    border-radius: 12;
+    padding: 10 4;
+    font-size: 12;
+    font-weight: 800;
+    background-color: var(--brand-primary);
+    color: var(--brand-primary-strong);
+}
+
+/* ── Primary Action: Finalize ── */
+
+.finalize-btn {
+    border-radius: 16;
+    font-size: 16;
+    font-weight: 900;
+    text-transform: uppercase;
+    padding: 16 20;
+    background-color: #2E7D32;
+    color: #fff;
+}
+
+.clear-btn {
+    border-radius: 14;
+    font-size: 13;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 14 16;
+    background-color: rgba(122, 74, 40, 0.15);
+    color: #7A4A28;
+}
+
+/* ── Qty + Button (prominent) ── */
+
+.qty-btn-add {
+    min-width: 40;
+    padding: 0;
+    border-radius: 10;
+    background-color: var(--brand-primary);
+    color: var(--brand-primary-strong);
+    font-size: 20;
+    font-weight: 800;
+}
+
+/* ── Sale Cards (VendasPage) ── */
+
+.sale-card {
+    background-color: var(--glass-bg);
+    border-width: 1;
+    border-color: var(--glass-border);
+    border-radius: 14;
+    padding: 10 12;
+    margin-bottom: 8;
+}
+
+.sale-total-ok {
+    color: #2E7D32;
+    font-size: 15;
+}
+
+.sale-total-cancel {
+    color: #B71C1C;
+    font-size: 13;
+}
+
+.pending-alert {
+    background-color: rgba(255, 152, 0, 0.18);
+    border-width: 1;
+    border-color: rgba(255, 152, 0, 0.5);
+    border-radius: 12;
+    padding: 10 14;
+    margin-bottom: 10;
+}
+
+.pending-alert-text {
+    font-size: 13;
+    font-weight: 700;
+    color: #E65100;
+    text-align: center;
+}
+
+.reprint-btn {
+    margin-top: 6;
+    border-radius: 10;
+    font-size: 12;
+    font-weight: 700;
+    padding: 8 12;
+    background-color: rgba(122, 74, 40, 0.15);
+    color: #5A3418;
+}
+
+.reprint-btn-urgent {
+    margin-top: 6;
+    border-radius: 10;
+    font-size: 13;
+    font-weight: 800;
+    padding: 10 14;
+    background-color: rgba(255, 152, 0, 0.25);
+    color: #E65100;
+}
+
+/* ── Smaller action buttons for secondary actions ── */
+
+.action-danger-sm {
+    border-radius: 10;
+    font-size: 11;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 10 12;
+    background-color: rgba(90, 52, 24, 0.65);
+    color: #fff3ce;
+}
+
+.action-secondary-sm {
+    border-radius: 10;
+    font-size: 11;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 10 12;
+    background-color: rgba(122, 74, 40, 0.15);
+    color: #4e2e18;
+}
+
+/* ── Report Page ── */
+
+.report-highlight {
+    background-color: rgba(255, 224, 138, 0.3);
+    border-radius: 12;
+    padding: 10 14;
+}
+
+.report-total {
+    font-size: 22;
+    font-weight: 800;
+    color: var(--brand-primary-strong);
 }
