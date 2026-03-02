@@ -1,0 +1,25 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "build-android",
+			"type": "shell",
+			"command": "ns",
+			"args": [
+				"build",
+				"android"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "clean-android",
+			"type": "shell",
+			"command": "ns",
+			"args": [
+				"clean",
+				"android"
+			],
+			"isBackground": false
+		}
+	]
+}

@@ -125,12 +125,128 @@ function parseStoredList<T>(storageKey: string): T[] {
     }
 }
 
-const persistedInventory = parseStoredList<InventoryItem>(INVENTORY_STORAGE_KEY)
+function normalizeInventory(items: unknown[]): InventoryItem[] {
+    const map = new Map(initialInventory.map(item => [item.id, item]))
+    const normalized: InventoryItem[] = []
+
+    for (const rawItem of items) {
+        if (!rawItem || typeof rawItem !== 'object') {
+            continue
+        }
+
+        const value = rawItem as Partial<InventoryItem>
+        if (typeof value.id !== 'string') {
+            continue
+        }
+
+        const base = map.get(value.id)
+        if (!base) {
+            continue
+        }
+
+        normalized.push({
+            id: base.id,
+            name: typeof value.name === 'string' ? value.name : base.name,
+            emoji: typeof value.emoji === 'string' ? value.emoji : base.emoji,
+            price: Number.isFinite(value.price) ? Number(value.price) : base.price,
+            stock: Number.isFinite(value.stock) ? Math.max(0, Number(value.stock)) : base.stock,
+        })
+    }
+
+    for (const base of initialInventory) {
+        if (!normalized.find(item => item.id === base.id)) {
+            normalized.push({ ...base })
+        }
+    }
+
+    return normalized
+}
+
+function normalizeSales(items: unknown[]): SaleRecord[] {
+    const normalized: SaleRecord[] = []
+
+    for (const rawSale of items) {
+        if (!rawSale || typeof rawSale !== 'object') {
+            continue
+        }
+
+        const value = rawSale as Partial<SaleRecord> & { lines?: unknown[] }
+        if (typeof value.id !== 'string') {
+            continue
+        }
+
+        const lines = Array.isArray(value.lines)
+            ? value.lines
+                .filter(line => line && typeof line === 'object')
+                .map((line) => {
+                    const typedLine = line as Partial<SaleLine>
+                    return {
+                        id: typeof typedLine.id === 'string' ? typedLine.id : 'item',
+                        name: typeof typedLine.name === 'string' ? typedLine.name : 'Item',
+                        quantity: Number.isFinite(typedLine.quantity) ? Math.max(0, Number(typedLine.quantity)) : 0,
+                        unitPrice: Number.isFinite(typedLine.unitPrice) ? Math.max(0, Number(typedLine.unitPrice)) : 0,
+                        total: Number.isFinite(typedLine.total) ? Math.max(0, Number(typedLine.total)) : 0,
+                    }
+                })
+            : []
+
+        normalized.push({
+            id: value.id,
+            createdAt: typeof value.createdAt === 'string' ? value.createdAt : new Date().toISOString(),
+            operatorName: typeof value.operatorName === 'string' ? value.operatorName : 'Operador',
+            paymentMethod: value.paymentMethod === 'pix' || value.paymentMethod === 'card' ? value.paymentMethod : 'cash',
+            status: value.status === 'canceled' ? 'canceled' : 'completed',
+            lines,
+            total: Number.isFinite(value.total) ? Math.max(0, Number(value.total)) : lines.reduce((sum, line) => sum + line.total, 0),
+            canceledAt: typeof value.canceledAt === 'string' ? value.canceledAt : undefined,
+            cancelReason: typeof value.cancelReason === 'string' ? value.cancelReason : undefined,
+            exchanges: Array.isArray(value.exchanges) ? value.exchanges : [],
+        })
+    }
+
+    return normalized
+}
+
+function normalizeStockMovements(items: unknown[]): StockMovement[] {
+    const validTypes: StockMovement['type'][] = ['sale', 'cancel', 'exchange-in', 'exchange-out', 'manual-return']
+    const normalized: StockMovement[] = []
+
+    for (const rawItem of items) {
+        if (!rawItem || typeof rawItem !== 'object') {
+            continue
+        }
+
+        const value = rawItem as Partial<StockMovement>
+        if (typeof value.id !== 'string' || typeof value.itemId !== 'string') {
+            continue
+        }
+
+        const movementType = validTypes.find(type => type === value.type) || 'manual-return'
+        normalized.push({
+            id: value.id,
+            createdAt: typeof value.createdAt === 'string' ? value.createdAt : new Date().toISOString(),
+            type: movementType,
+            itemId: value.itemId,
+            quantity: Number.isFinite(value.quantity) ? Math.max(0, Number(value.quantity)) : 0,
+            note: typeof value.note === 'string' ? value.note : '',
+        })
+    }
+
+    return normalized
+}
+
+const persistedInventoryRaw = parseStoredList<unknown>(INVENTORY_STORAGE_KEY)
+const persistedSalesRaw = parseStoredList<unknown>(SALES_STORAGE_KEY)
+const persistedStockMovementsRaw = parseStoredList<unknown>(STOCK_MOVEMENTS_STORAGE_KEY)
+
+const persistedInventory = normalizeInventory(persistedInventoryRaw)
+const persistedSales = normalizeSales(persistedSalesRaw)
+const persistedStockMovements = normalizeStockMovements(persistedStockMovementsRaw)
 const inventoryItems = reactive<InventoryItem[]>(
     persistedInventory.length > 0 ? persistedInventory : initialInventory.map(item => ({ ...item })),
 )
-const sales = reactive<SaleRecord[]>(parseStoredList<SaleRecord>(SALES_STORAGE_KEY))
-const stockMovements = reactive<StockMovement[]>(parseStoredList<StockMovement>(STOCK_MOVEMENTS_STORAGE_KEY))
+const sales = reactive<SaleRecord[]>(persistedSales)
+const stockMovements = reactive<StockMovement[]>(persistedStockMovements)
 const cashMovements = reactive<CashMovement[]>(parseStoredList<CashMovement>(CASH_MOVEMENTS_STORAGE_KEY))
 const shifts = reactive<ShiftSession[]>(parseStoredList<ShiftSession>(SHIFTS_STORAGE_KEY))
 const cartItems = reactive<CartItem[]>(inventoryItems.map(item => ({
