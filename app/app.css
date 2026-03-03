@@ -300,6 +300,19 @@ ActionBar.app-actionbar {
     font-size: 15;
 }
 
+.operator-input-error {
+    font-size: 12;
+    color: #c0392b;
+    padding: 0 4;
+}
+
+.operator-input-preview {
+    font-size: 12;
+    color: rgba(122, 74, 40, 0.7);
+    padding: 0 4;
+    font-style: italic;
+}
+
 .meta-text {
     font-size: 11;
     color: rgba(122, 74, 40, 0.9);

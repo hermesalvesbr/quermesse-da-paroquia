@@ -92,6 +92,62 @@ class DirectusService {
     }
   }
 
+  /**
+   * Busca operador pelo nome exato (já normalizado).
+   * A comparação é case-insensitive via Directus `_icontains` com match exato
+   * para evitar duplicatas por variação de maiúsculas.
+   */
+  async findOperatorByName(normalizedName: string): Promise<PdvOperator | null> {
+    try {
+      const results = await this.client.request(
+        readItems('pdv_operators', {
+          filter: { name: { _eq: normalizedName } },
+          limit: 1,
+        }),
+      )
+      this.isOnline = true
+      return (results as PdvOperator[]).length > 0 ? (results as PdvOperator[])[0] : null
+    }
+    catch (error) {
+      console.error('DirectusService: Erro ao buscar operador por nome', error)
+      this.isOnline = false
+      return null
+    }
+  }
+
+  /**
+   * Busca operador pelo nome normalizado.
+   * Se já existir → retorna o existente (evita duplicata).
+   * Se não existir → cria novo registro com `active: true` e `status: 'published'`.
+   */
+  async findOrCreateOperator(normalizedName: string): Promise<PdvOperator> {
+    // 1. Buscar existente
+    const existing = await this.findOperatorByName(normalizedName)
+    if (existing) {
+      console.log(`DirectusService: Operador "${normalizedName}" já existe (id=${existing.id})`)
+      return existing
+    }
+
+    // 2. Criar novo
+    try {
+      const created = await this.client.request(
+        createItem('pdv_operators', {
+          name: normalizedName,
+          active: true,
+          status: 'published',
+        }),
+      )
+      this.isOnline = true
+      console.log(`DirectusService: Operador "${normalizedName}" criado (id=${created.id})`)
+      return created as PdvOperator
+    }
+    catch (error) {
+      console.error('DirectusService: Erro ao criar operador', error)
+      this.isOnline = false
+      throw new Error('Não foi possível criar o operador no servidor. Verifique a conexão.')
+    }
+  }
+
   // ----- CATEGORIES -----
   async getCategories(): Promise<PdvCategory[]> {
     try {

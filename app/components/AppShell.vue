@@ -82,14 +82,34 @@
                     <StackLayout class="modal-card">
                         <Image src="~/assets/softagon.png" stretch="aspectFit" height="44" class="m-b-4" horizontalAlignment="center" />
                         <Label text="Quem está operando o caixa?" class="title text-center m-b-2" />
-                        <Label text="Selecione o operador cadastrado." class="subtitle text-center m-b-4" />
-                        <ListPicker
-                            :items="operatorNames"
-                            :selectedIndex="selectedOperatorIndex"
-                            @selectedIndexChange="onOperatorPickerChange"
-                            class="m-b-4"
+                        <Label text="Informe seu nome completo." class="subtitle text-center m-b-4" />
+                        <TextField
+                            v-model="operatorInput"
+                            hint="Nome e Sobrenome"
+                            returnKeyType="done"
+                            autocorrect="false"
+                            autocapitalizationType="words"
+                            class="operator-input m-b-1"
+                            @returnPress="saveOperator"
                         />
-                        <Button text="INICIAR CAIXA" class="action-primary" :isEnabled="operatorNames.length > 0" @tap="saveOperator" />
+                        <Label
+                            v-if="operatorInputError"
+                            :text="operatorInputError"
+                            class="operator-input-error m-b-2"
+                            textWrap="true"
+                        />
+                        <Label
+                            v-if="operatorInputPreview && !operatorInputError"
+                            :text="'→ ' + operatorInputPreview"
+                            class="operator-input-preview m-b-2"
+                        />
+                        <ActivityIndicator v-if="operatorLoading" :busy="true" class="m-b-2" />
+                        <Button
+                            text="INICIAR CAIXA"
+                            class="action-primary"
+                            :isEnabled="!operatorLoading && operatorInput.length > 0"
+                            @tap="saveOperator"
+                        />
                     </StackLayout>
                 </GridLayout>
             </GridLayout>
@@ -100,10 +120,11 @@
 <script setup lang="ts">
 import { Application, alert } from '@nativescript/core'
 import { connectionType, getConnectionType, startMonitoring, stopMonitoring } from '@nativescript/core/connectivity'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { getBluetoothService } from '../services/BluetoothService'
 import { OperatorSessionService } from '../services/OperatorSessionService'
 import { pdvStore } from '../services/PdvStoreDirectus'
+import { normalizeOperatorName, validateOperatorName, OPERATOR_NAME_VALIDATION_MSG } from '../utils/OperatorNameUtils'
 import PdvPage from './PdvPage.vue'
 import PrinterPage from './PrinterPage.vue'
 import RelatoriosPage from './RelatoriosPage.vue'
@@ -117,7 +138,10 @@ const sessionService = new OperatorSessionService()
 const isMenuOpen = ref(false)
 const activePage = ref<ActivePage>('pdv')
 const showOperatorModal = ref(false)
-const selectedOperatorIndex = ref(0)
+const operatorInput = ref('')
+const operatorInputError = ref('')
+const operatorInputPreview = ref('')
+const operatorLoading = ref(false)
 const operatorName = ref('')
 const operatorLoginAt = ref('')
 const printerConnected = ref(false)
@@ -125,8 +149,17 @@ const internetConnected = ref(true)
 const bluetoothEnabled = ref(false)
 const startupCheckDone = ref(false)
 
-// Gap #1: Lista de operadores vem do Directus (via pdvStore)
-const operatorNames = computed(() => pdvStore.operators.map(op => op.name))
+// Validação em tempo real do campo de nome do operador
+watch(operatorInput, (raw) => {
+    if (!raw.trim()) {
+        operatorInputError.value = ''
+        operatorInputPreview.value = ''
+        return
+    }
+    const normalized = normalizeOperatorName(raw)
+    operatorInputPreview.value = normalized
+    operatorInputError.value = validateOperatorName(normalized) ? '' : OPERATOR_NAME_VALIDATION_MSG
+})
 
 const pageTitle = computed(() => {
     if (activePage.value === 'printer') {
@@ -258,9 +291,10 @@ function loadOperator(): void {
 }
 
 function openOperatorModal(): void {
-    // Pré-seleciona o operador atual no picker
-    const currentIdx = pdvStore.operators.findIndex(op => op.name === operatorName.value)
-    selectedOperatorIndex.value = currentIdx >= 0 ? currentIdx : 0
+    operatorInput.value = operatorName.value || ''
+    operatorInputError.value = ''
+    operatorInputPreview.value = operatorName.value || ''
+    operatorLoading.value = false
     showOperatorModal.value = true
 }
 
@@ -269,24 +303,33 @@ function onDrawerChangeOperator(): void {
     openOperatorModal()
 }
 
-function onOperatorPickerChange(args: { value: number }): void {
-    selectedOperatorIndex.value = args.value
-}
-
 async function saveOperator(): Promise<void> {
-    try {
-        const selected = pdvStore.operators[selectedOperatorIndex.value]
-        if (!selected) {
-            await alert('Nenhum operador disponível. Verifique a conexão com o servidor.')
-            return
-        }
+    const raw = operatorInput.value
+    if (!raw.trim()) {
+        operatorInputError.value = 'Informe o nome do operador.'
+        return
+    }
 
-        const session = sessionService.saveOperator(selected.name)
+    const normalized = normalizeOperatorName(raw)
+    if (!validateOperatorName(normalized)) {
+        operatorInputError.value = OPERATOR_NAME_VALIDATION_MSG
+        return
+    }
+
+    operatorLoading.value = true
+    operatorInputError.value = ''
+
+    try {
+        const session = await sessionService.loginOperator(raw)
         operatorName.value = session.name
         operatorLoginAt.value = formatDate(session.loginAt)
         showOperatorModal.value = false
-    } catch (error) {
-        await alert(String(error))
+    }
+    catch (error) {
+        operatorInputError.value = error instanceof Error ? error.message : String(error)
+    }
+    finally {
+        operatorLoading.value = false
     }
 }
 
