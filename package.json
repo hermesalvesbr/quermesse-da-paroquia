@@ -15,7 +15,8 @@
   "dependencies": {
     "@directus/sdk": "^21.1.0",
     "@nativescript/core": "~9.0.0",
-    "nativescript-vue": "^3.0.0"
+    "nativescript-vue": "^3.0.0",
+    "vue": "^3.5.18"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^7.4.3",

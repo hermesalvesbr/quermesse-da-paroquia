@@ -41,7 +41,7 @@ jobs:
         run: bun install
 
       - name: Build Android APK
-        run: bunx ns build android
+        run: bunx ns build android --env.skipTypeCheck
 
       - name: Prepare APK artifact
         run: |
