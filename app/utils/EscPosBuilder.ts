@@ -2,6 +2,22 @@
 export class EscPosBuilder {
     private buffer: number[] = [];
 
+    private toAscii(text: string): string {
+        return text
+            .replace(/[ÁÀÂÃÄ]/g, 'A')
+            .replace(/[áàâãä]/g, 'a')
+            .replace(/[ÉÈÊË]/g, 'E')
+            .replace(/[éèêë]/g, 'e')
+            .replace(/[ÍÌÎÏ]/g, 'I')
+            .replace(/[íìîï]/g, 'i')
+            .replace(/[ÓÒÔÕÖ]/g, 'O')
+            .replace(/[óòôõö]/g, 'o')
+            .replace(/[ÚÙÛÜ]/g, 'U')
+            .replace(/[úùûü]/g, 'u')
+            .replace(/Ç/g, 'C')
+            .replace(/ç/g, 'c')
+    }
+
     // Initialize printer
     public init(): this {
         this.buffer.push(27, 64); // ESC @
@@ -17,8 +33,9 @@ export class EscPosBuilder {
     // Print text
     public text(text: string): this {
         // Simple ASCII encoding
-        for (let i = 0; i < text.length; i++) {
-            this.buffer.push(text.charCodeAt(i));
+        const safeText = this.toAscii(text)
+        for (let i = 0; i < safeText.length; i++) {
+            this.buffer.push(safeText.charCodeAt(i));
         }
         return this;
     }
@@ -148,6 +165,27 @@ export function buildItemTickets(data: TicketData): number[] {
     const b = new EscPosBuilder();
     b.init();
 
+    const formatDatePtBr = (value: string): string => {
+        const date = new Date(value)
+        if (Number.isNaN(date.getTime())) {
+            return value
+        }
+
+        const datePart = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`
+        const timePart = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+        return `${datePart}  ${timePart}`
+    }
+
+    const printableUpper = (value: string): string => {
+        return value
+            .normalize('NFD')
+            .replace(/[\u0300-\u036F]/g, '')
+            .toUpperCase()
+    }
+
+    const eventTitle = printableUpper(data.eventName || 'TERME SAO JOSE')
+    const ticketDate = formatDatePtBr(data.dateTime)
+
     // Expand items by quantity — 2 coxinhas = 2 individual tickets
     const individualItems: Array<{ name: string; unitPrice: number }> = []
     
@@ -162,58 +200,34 @@ export function buildItemTickets(data: TicketData): number[] {
     for (let idx = 0; idx < individualItems.length; idx++) {
         const item = individualItems[idx]
         const priceFormatted = `R$ ${item.unitPrice.toFixed(2).replace('.', ',')}`
+        const itemName = printableUpper(item.name)
 
-        b.align(1) // Center
-
-        // Event name
-        b.bold(true)
-            .doubleSize(true)
-            .textLine(data.eventName)
-            .doubleSize(false)
+        b.align(1)
+            .bold(true)
+            .textLine(eventTitle)
             .bold(false)
+            .textLine(ticketDate)
+            .separator('-')
             .lf()
 
-        // Order number
-        b.bold(true)
+            .bold(true)
             .doubleSize(true)
-            .textLine(`PEDIDO #${String(data.orderNumber).padStart(3, '0')}`)
-            .doubleSize(false)
-            .bold(false)
+            .textLine(itemName)
             .lf()
-
-        // Item name (large, bold)
-        b.bold(true)
-            .doubleSize(true)
-            .textLine(item.name.toUpperCase())
-            .doubleSize(false)
-            .bold(false)
-            .lf()
-
-        // Price (large, bold)
-        b.bold(true)
-            .doubleSize(true)
             .textLine(priceFormatted)
             .doubleSize(false)
             .bold(false)
             .lf()
 
-        // Payment method
-        b.separator('-')
+            .separator('-')
+            .align(0)
             .textLine(`Pagamento: ${data.paymentMethod}`)
+            .textLine(`Operador: ${data.operatorName}`)
+            .separator('-')
             .lf()
 
-        // Operator
-        b.textLine(`Operador: ${data.operatorName}`)
-            .lf()
-
-        // Date/time
-        b.textLine(data.dateTime)
-            .lf()
-
-        // Instructions
-        b.bold(true)
+            .bold(true)
             .textLine('Apresente este ticket')
-            .textLine('para retirar o item')
             .bold(false)
             .lf()
             .lf()

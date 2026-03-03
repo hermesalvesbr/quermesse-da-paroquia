@@ -117,3 +117,37 @@
 **Regra**: Em projetos Android-only, nunca usar atributos `ios.*` nos templates Vue. Se necessário targetar ambas as plataformas, usar `v-bind` dinâmico com guard `isIOS`.
 
 **Diagnóstico**: O erro `Module evaluation promise rejected` do NativeScript runtime é um wrapper genérico. Para encontrar o erro JS real, usar try-catch no entry point (`app.ts`) e logar `error.message` + `error.stack`.
+
+---
+
+## 2026-03-03 — Evitar `\p{...}` em regex no runtime Android
+
+**Contexto**: App crashou ao abrir com `SyntaxError: Invalid regular expression: /\p{Diacritic}/: Invalid property name` no `bundle.mjs`.
+
+**Causa raiz**: O engine JS do runtime Android em uso não suporta Unicode property escapes (`\p{...}`), mesmo com flag `u`.
+
+**Fix**: Em [app/utils/EscPosBuilder.ts](app/utils/EscPosBuilder.ts), trocado:
+- de: `/\p{Diacritic}/gu`
+- para: `/[\u0300-\u036f]/g`
+
+**Regra**:
+1. Em código que roda no runtime do NativeScript Android, **não usar** `\p{...}` em regex.
+2. Preferir classes explícitas por faixa Unicode quando necessário.
+3. Sempre validar no dispositivo físico após introduzir regex nova em código de runtime.
+
+---
+
+## 2026-03-03 — Regra de release após grande mudança
+
+**Decisão operacional**: Sempre que houver grande mudança de códigobase (feature relevante, fluxo crítico, integração, UX de impressão, ajustes de CI/CD), sugerir e perguntar explicitamente sobre publicar nova release.
+
+**Protocolo padrão após mudanças grandes**:
+1. Confirmar build local (`ns build android`) sem erro.
+2. Confirmar comportamento principal em device USB (quando aplicável).
+3. Perguntar ao usuário: “Deseja soltar nova release agora?”.
+4. Se aprovado, criar nova tag semântica (ex.: `v1.0.3`) e acompanhar pipeline até release publicada.
+5. Confirmar links finais: release + APK + página pública.
+
+**Regra de interação**:
+- Não publicar tag/release automaticamente sem confirmação explícita do usuário.
+- Sempre oferecer esse próximo passo ao concluir mudanças grandes.
