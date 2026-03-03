@@ -28,6 +28,27 @@ export interface SaleLine {
   quantity: number
   unitPrice: number
   total: number
+  returnedQty: number
+}
+
+export interface SaleReturn {
+  at: string
+  operatorName: string
+  itemId: string
+  itemName: string
+  quantity: number
+  refundAmount: number
+}
+
+export interface SaleExchange {
+  at: string
+  operatorName: string
+  fromItemId: string
+  fromItemName: string
+  toItemId: string
+  toItemName: string
+  quantity: number
+  priceDifference: number
 }
 
 export type PaymentMethod = 'cash' | 'pix' | 'card'
@@ -47,6 +68,8 @@ export interface SaleRecord {
   total: number
   canceledAt?: string
   cancelReason?: string
+  returns?: SaleReturn[]
+  exchanges?: SaleExchange[]
 }
 
 export interface ReportSummary {
@@ -447,6 +470,7 @@ async function finalizeSale(operatorName: string, paymentMethod: PaymentMethod =
       quantity: item.quantity,
       unitPrice: item.price,
       total: item.quantity * item.price,
+      returnedQty: 0,
     }))
 
   const total = lines.reduce((sum, line) => sum + line.total, 0)
@@ -710,6 +734,7 @@ function exchangeLatestSaleItem(fromItemId: string, toItemId: string, quantity: 
       quantity,
       unitPrice: toInventory.price,
       total: quantity * toInventory.price,
+      returnedQty: 0,
     })
   }
 
@@ -755,6 +780,212 @@ function exchangeLatestSaleItem(fromItemId: string, toItemId: string, quantity: 
 
   saveSalesToStorage()
   return latestCompleted
+}
+
+// === DEVOLUÇÃO POR ITEM ===
+// Regra: Só permite devolução em vendas pagas em Dinheiro (cash)
+async function returnSaleItem(
+  saleId: string,
+  lineItemId: string,
+  quantity: number,
+  operatorName: string,
+): Promise<SaleRecord> {
+  const sale = sales.find(s => s.id === saleId)
+  if (!sale) throw new Error('Venda não encontrada.')
+  if (sale.status !== 'completed') throw new Error('Venda não está concluída.')
+  if (sale.paymentMethod !== 'cash') throw new Error('Devolução só é permitida para vendas em Dinheiro.')
+  if (quantity <= 0) throw new Error('Quantidade inválida.')
+
+  const line = sale.lines.find(l => l.id === lineItemId)
+  if (!line) throw new Error('Item não encontrado na venda.')
+
+  const availableQty = line.quantity - (line.returnedQty || 0)
+  if (quantity > availableQty) {
+    throw new Error(`Só há ${availableQty} unidade(s) disponível(is) para devolução.`)
+  }
+
+  // Atualiza estoque local
+  const stockItem = inventoryItems.find(inv => inv.id === lineItemId)
+  if (stockItem) {
+    stockItem.stock += quantity
+  }
+
+  // Atualiza linha da venda
+  line.returnedQty = (line.returnedQty || 0) + quantity
+
+  // Recalcula total da venda (desconta itens devolvidos)
+  const refundAmount = quantity * line.unitPrice
+  sale.total -= refundAmount
+
+  // Registra devolução
+  if (!sale.returns) sale.returns = []
+  sale.returns.push({
+    at: new Date().toISOString(),
+    operatorName,
+    itemId: lineItemId,
+    itemName: line.name,
+    quantity,
+    refundAmount,
+  })
+
+  // Sincroniza com Directus
+  if (sale.directusSaleId) {
+    // Atualiza estoque do produto
+    if (stockItem) {
+      directusService.updateProductStock(lineItemId, stockItem.stock).catch(err => {
+        console.warn('PdvStoreDirectus: Falha ao sincronizar estoque após devolução:', err)
+      })
+    }
+
+    // Busca o sale_item no Directus para atualizar returned_qty
+    directusService.getSaleItems(sale.directusSaleId).then(directusItems => {
+      const directusItem = directusItems.find(di => di.product_id === lineItemId)
+      if (directusItem && directusItem.id) {
+        directusService.updateSaleItemReturnedQty(directusItem.id, line.returnedQty || 0).catch(err => {
+          console.warn('PdvStoreDirectus: Falha ao atualizar returned_qty no Directus:', err)
+        })
+      }
+    }).catch(err => {
+      console.warn('PdvStoreDirectus: Falha ao buscar itens da venda no Directus:', err)
+    })
+
+    // Atualiza total da venda no Directus
+    directusService.updateSaleItems(
+      sale.directusSaleId,
+      sale.lines.filter(l => l.quantity > 0).map(l => ({
+        product_id: l.id,
+        quantity: l.quantity,
+        unit_price: l.unitPrice,
+        total_price: l.total,
+      })),
+      sale.total,
+    ).catch(err => {
+      console.warn('PdvStoreDirectus: Falha ao atualizar total da venda no Directus:', err)
+    })
+  }
+
+  saveSalesToStorage()
+  console.log(`PdvStoreDirectus: Devolução registrada - ${quantity}x ${line.name} (R$ ${refundAmount.toFixed(2)})`)
+  return sale
+}
+
+// === TROCA POR ITEM ===
+// Regra: Só permite troca em vendas pagas em Dinheiro (cash)
+async function exchangeSaleItem(
+  saleId: string,
+  fromLineItemId: string,
+  toItemId: string,
+  quantity: number,
+  operatorName: string,
+): Promise<{ sale: SaleRecord; priceDifference: number }> {
+  const sale = sales.find(s => s.id === saleId)
+  if (!sale) throw new Error('Venda não encontrada.')
+  if (sale.status !== 'completed') throw new Error('Venda não está concluída.')
+  if (sale.paymentMethod !== 'cash') throw new Error('Troca só é permitida para vendas em Dinheiro.')
+  if (quantity <= 0) throw new Error('Quantidade inválida.')
+
+  const fromLine = sale.lines.find(l => l.id === fromLineItemId)
+  if (!fromLine) throw new Error('Item de origem não encontrado na venda.')
+
+  const availableQty = fromLine.quantity - (fromLine.returnedQty || 0)
+  if (quantity > availableQty) {
+    throw new Error(`Só há ${availableQty} unidade(s) disponível(is) para troca.`)
+  }
+
+  const toInventory = inventoryItems.find(inv => inv.id === toItemId)
+  const fromInventory = inventoryItems.find(inv => inv.id === fromLineItemId)
+  if (!toInventory) throw new Error('Produto destino não encontrado.')
+  if (toInventory.stock < quantity) throw new Error(`Estoque insuficiente para ${toInventory.name}.`)
+
+  const priceDifference = (toInventory.price - fromLine.unitPrice) * quantity
+
+  // Ajusta estoque localmente
+  if (fromInventory) fromInventory.stock += quantity
+  toInventory.stock -= quantity
+
+  // Marca quantidade trocada no item original
+  fromLine.returnedQty = (fromLine.returnedQty || 0) + quantity
+
+  // Adiciona ou incrementa o item novo na venda
+  const existingToLine = sale.lines.find(l => l.id === toItemId)
+  if (existingToLine) {
+    existingToLine.quantity += quantity
+    existingToLine.total = existingToLine.quantity * existingToLine.unitPrice
+  } else {
+    sale.lines.push({
+      id: toItemId,
+      name: toInventory.name,
+      quantity,
+      unitPrice: toInventory.price,
+      total: quantity * toInventory.price,
+      returnedQty: 0,
+    })
+  }
+
+  // Recalcula total
+  sale.total = sale.lines.reduce((sum, l) => {
+    const activeQty = l.quantity - (l.returnedQty || 0)
+    return sum + activeQty * l.unitPrice
+  }, 0)
+
+  // Registra troca
+  if (!sale.exchanges) sale.exchanges = []
+  sale.exchanges.push({
+    at: new Date().toISOString(),
+    operatorName,
+    fromItemId: fromLineItemId,
+    fromItemName: fromLine.name,
+    toItemId,
+    toItemName: toInventory.name,
+    quantity,
+    priceDifference,
+  })
+
+  // Sincroniza com Directus
+  if (sale.directusSaleId) {
+    if (fromInventory) {
+      directusService.updateProductStock(fromLineItemId, fromInventory.stock).catch(err => {
+        console.warn('PdvStoreDirectus: Falha ao atualizar estoque (from) na troca:', err)
+      })
+    }
+    directusService.updateProductStock(toItemId, toInventory.stock).catch(err => {
+      console.warn('PdvStoreDirectus: Falha ao atualizar estoque (to) na troca:', err)
+    })
+
+    // Atualiza returned_qty no Directus
+    directusService.getSaleItems(sale.directusSaleId).then(directusItems => {
+      const directusItem = directusItems.find(di => di.product_id === fromLineItemId)
+      if (directusItem && directusItem.id) {
+        directusService.updateSaleItemReturnedQty(directusItem.id, fromLine.returnedQty || 0).catch(err => {
+          console.warn('PdvStoreDirectus: Falha ao atualizar returned_qty na troca:', err)
+        })
+      }
+    }).catch(err => {
+      console.warn('PdvStoreDirectus: Falha ao buscar itens para troca:', err)
+    })
+
+    // Atualiza itens da venda no Directus
+    const updatedItems = sale.lines
+      .filter(l => l.quantity > 0)
+      .map(l => ({
+        product_id: l.id,
+        quantity: l.quantity,
+        unit_price: l.unitPrice,
+        total_price: l.total,
+      }))
+
+    directusService.updateSaleItems(
+      sale.directusSaleId,
+      updatedItems,
+      sale.total,
+    ).catch(err => {
+      console.warn('PdvStoreDirectus: Falha ao atualizar itens da venda na troca:', err)
+    })
+  }
+
+  saveSalesToStorage()
+  console.log(`PdvStoreDirectus: Troca registrada - ${quantity}x ${fromLine.name} → ${toInventory.name} (diff: R$ ${priceDifference.toFixed(2)})`)
+  return { sale, priceDifference }
 }
 
 function returnItemsToStock(itemId: string, quantity: number, note: string): void {
@@ -893,6 +1124,8 @@ export const pdvStore = {
   cancelSale,
   cancelLatestSale,
   exchangeLatestSaleItem,
+  returnSaleItem,
+  exchangeSaleItem,
   returnItemsToStock,
   markAsPrinted,
   getCartItemsByCategory,

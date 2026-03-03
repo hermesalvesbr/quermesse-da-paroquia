@@ -1,178 +1,213 @@
-# PDV Android Native (Vue + NativeScript) com Impressão ESC/POS via Bluetooth SPP
+# PDV Quermesse — Android Nativo (NativeScript + Vue 3)
 
-Aplicativo Android nativo para PDV usando **NativeScript + Vue**, com fluxo completo:
+Ponto de venda mobile para quermesses e festas, com impressão térmica Bluetooth ESC/POS, gestão de estoque e sincronização com Directus.
 
-1. UI do PDV coleta os dados da venda
-2. Módulo Bluetooth clássico (SPP/RFCOMM) conecta na impressora térmica
-3. App converte os dados para bytes ESC/POS
-4. Bytes são enviados pelo socket Bluetooth para impressão
+Tudo roda nativamente no Android — sem browser, sem serviços externos obrigatórios.
 
-Tudo roda nativamente no Android, sem browser e sem serviços externos.
+---
+
+## Funcionalidades
+
+### PDV e Vendas
+- Catálogo de produtos carregado do Directus (com fallback offline via cache local)
+- Carrinho com controle de quantidade e validação de estoque em tempo real
+- Finalização de venda com escolha de forma de pagamento: **Dinheiro**, **PIX** ou **Cartão**
+- Numeração sequencial de pedidos (reset diário)
+- Identificação de operador por modal na abertura
+
+### Impressão Bluetooth ESC/POS
+- Conexão via Bluetooth clássico SPP (RFCOMM) com impressoras térmicas POS
+- Tickets individuais por item (cada unidade gera 1 ticket com corte)
+- Reconexão automática em falha de envio (até 5 tentativas)
+- Reimprimir tickets de vendas anteriores
+
+### Gestão de Itens (Devolução e Troca)
+- **Devolução por item** — devolver unidades específicas de uma venda concluída
+- **Troca por item** — trocar um item por outro produto do catálogo
+- Cálculo automático de diferença de preço na troca
+- Histórico de devoluções e trocas registrado na venda
+- Itens devolvidos aparecem riscados com badge visual
+
+> **Regra de negócio:** Devoluções e trocas só são permitidas em vendas pagas em **Dinheiro**. Vendas em PIX ou Cartão não permitem devolução/troca.
+
+### Cancelamento de Venda
+- Cancelamento individual com motivo obrigatório
+- Itens retornados automaticamente ao estoque
+
+### Sincronização com Directus
+- Produtos, operadores e categorias sincronizados do backend Directus
+- Vendas criadas offline são enfileiradas e sincronizadas automaticamente
+- Campo `returned_qty` no Directus rastreia devoluções por item de venda
+- Fallback offline completo com cache local em `ApplicationSettings`
+
+### Relatórios
+- Resumo por dia e semana (vendas, ticket médio, top itens)
+- Contagem de cancelamentos
 
 ---
 
 ## Arquitetura
 
-- **UI (Vue NativeScript):** tela de venda e interação do operador
-- **BluetoothService (Android SPP):**
-  - Lista impressoras pareadas
-  - Conecta por RFCOMM UUID SPP (`00001101-0000-1000-8000-00805F9B34FB`)
-  - Mantém socket de saída
-  - Faz reconexão automática em falha de envio
-  - Publica status para a UI
-- **EscPosBuilder:** constrói payload ESC/POS (init, alinhamento, negrito, linhas, corte)
+```
+app/
+├── components/
+│   ├── AppShell.vue         # Shell com drawer lateral
+│   ├── PdvPage.vue          # Tela principal do PDV (carrinho)
+│   ├── VendasPage.vue       # Histórico de vendas + gestão de itens
+│   ├── PrinterPage.vue      # Conexão Bluetooth
+│   ├── RelatoriosPage.vue   # Relatórios
+│   └── SettingsPage.vue     # Configurações
+├── services/
+│   ├── BluetoothService.ts  # Conexão SPP + reconexão automática
+│   ├── DirectusService.ts   # Client Directus (CRUD produtos/vendas)
+│   ├── PdvStoreDirectus.ts  # Estado reativo (inventário, carrinho, vendas)
+│   └── OperatorSessionService.ts
+└── utils/
+    ├── EscPosBuilder.ts     # Builder fluente de comandos ESC/POS
+    └── BluetoothPermissions.ts
+```
+
+### Stack
+| Componente | Tecnologia |
+|---|---|
+| Framework | NativeScript 9 + nativescript-vue 3 |
+| Linguagem | TypeScript 5.8 |
+| Estilo | TailwindCSS 4 |
+| Backend | Directus (opcional, funciona offline) |
+| Impressão | Bluetooth SPP + ESC/POS |
+| Plataforma | Android |
+| Package Manager | **Bun** (obrigatório) |
 
 ---
 
 ## Requisitos
 
 - Node.js 20+
+- Bun (latest)
 - NativeScript CLI 9+
-- Android SDK + AVD configurados
-- Java/JDK compatível com ambiente Android local
+- Android SDK + JDK 17
+- Device Android ou emulador
 
 ---
 
 ## Instalação
 
 ```bash
-npm install
+bun install
 ```
 
 ---
 
-## Qualidade de código
-
-Este projeto usa **ESLint com `@antfu/eslint-config`** para manter padrão consistente e facilitar manutenção no time.
+## Comandos
 
 ```bash
-# Verificar padrões
-npm run lint
-
-# Corrigir automaticamente o que for possível
-npm run lint:fix
-```
-
-Template de PR com checklist operacional disponível em `.github/pull_request_template.md`.
-
----
-
-## Rodando no Android
-
-### 1) Build local
-
-```bash
+# Build Android
 ns build android
+
+# Rodar no device conectado via USB
+ns run android --no-hmr
+
+# Rodar em device específico
+ns run android --no-hmr --device <DEVICE_ID>
+
+# Lint
+bun run lint
+bun run lint:fix
+
+# Gerar APK organizado
+bun run apk:build
+
+# Publicar release no GitHub (com tag)
+bun run release:github
 ```
 
-### 2) Rodar no emulador
+---
+
+## CI/CD — Release Automática
+
+### Workflow: Release APK (`release-apk-pages.yml`)
+
+Disparado automaticamente ao fazer push de uma tag `v*`:
 
 ```bash
-ns run android --no-hmr --device emulator-5554
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
-> Se necessário, liste dispositivos:
+O workflow:
+1. Instala Java 17, Android SDK, Node.js e Bun
+2. Roda `bun install` + `bunx ns build android`
+3. Copia o APK para `artifacts/apk/`
+4. Publica GitHub Release com os APKs anexados
+5. Gera release notes automáticas
 
-```bash
-adb devices
-ns device android --available-devices
-```
+### Workflow: Deploy Pages (`deploy-pages.yml`)
+
+Disparado ao fazer push na branch `main` com mudanças em `public/releases/index.html`.
+
+Portal público de downloads: [hermesalvesbr.github.io/quermesse-da-paroquia](https://hermesalvesbr.github.io/quermesse-da-paroquia/)
+
+---
+
+## Gestão de Itens — Devolução e Troca
+
+### Fluxo de Devolução
+1. Acesse **Vendas** no menu lateral
+2. Localize a venda (deve ser paga em **Dinheiro**)
+3. Ao lado de cada item, toque **↩** (devolver)
+4. Selecione a quantidade a devolver
+5. Confirme — o valor a reembolsar é exibido
+6. Item devolvido aparece riscado, estoque atualizado
+
+### Fluxo de Troca
+1. Localize a venda em **Vendas** (pagamento em **Dinheiro**)
+2. Toque **🔄** (trocar) ao lado do item
+3. Selecione o produto destino da lista
+4. Selecione a quantidade
+5. Diferença de preço é calculada automaticamente:
+   - Produto mais caro → cobrar a diferença do cliente
+   - Produto mais barato → devolver a diferença
+6. Confirme — estoque de ambos os produtos é atualizado
+
+### Restrição por Forma de Pagamento
+| Pagamento | Devolver | Trocar |
+|---|---|---|
+| Dinheiro | ✅ | ✅ |
+| PIX | ❌ | ❌ |
+| Cartão | ❌ | ❌ |
+
+Vendas em PIX ou Cartão não exibem os botões de ação por item.
+
+---
+
+## Impressão ESC/POS
+
+### Tickets Individuais
+Cada unidade vendida gera um ticket separado com corte entre eles:
+- **Header:** nome do evento + data/hora
+- **Item:** nome em tamanho duplo + preço
+- **Footer:** forma de pagamento, operador, mensagem "Apresente este ticket"
+
+### Compatibilidade
+- Impressoras térmicas POS 58mm / 80mm
+- Bluetooth clássico SPP (UUID `00001101-0000-1000-8000-00805F9B34FB`)
+- Caracteres acentuados convertidos automaticamente para ASCII
 
 ---
 
 ## Permissões Android
 
-As permissões de Bluetooth estão definidas no `AndroidManifest.xml` em `App_Resources/Android/src/main/AndroidManifest.xml`, incluindo suporte para Android 12+ (`BLUETOOTH_CONNECT` e `BLUETOOTH_SCAN`).
+Definidas em `App_Resources/Android/src/main/AndroidManifest.xml`:
+- `BLUETOOTH`, `BLUETOOTH_ADMIN` (Android < 12)
+- `BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN` (Android 12+)
+- `ACCESS_FINE_LOCATION` (necessário para scan Bluetooth)
 
 ---
 
-## Como usar o app
-
-1. Ative Bluetooth no Android
-2. Faça pareamento da impressora térmica nas configurações do Android
-3. Abra o app
-4. Toque em **Buscar Impressoras Bluetooth**
-5. Selecione a impressora da lista
-6. Preencha valor e observação
-7. Toque em **IMPRIMIR RECIBO**
-
-A parte inferior da tela mostra o status de conexão/impressão em tempo real.
-
----
-
-## Reconexão automática
-
-Quando ocorre falha de envio:
-
-- o app marca a conexão como instável
-- agenda reconexão automática
-- tenta reconectar até 5 vezes (intervalo de 2.5s)
-- atualiza status para o operador
-
----
-
-## Validação executada
-
-Validação feita neste projeto:
-
-- `ns build android` compilando com sucesso
-- instalação/sync no emulador (`emulator-5554`) com sucesso
-- app iniciando e fluxo de tela funcionando
-
-### Observação importante sobre impressora Bluetooth em emulador
-
-Emuladores Android podem não reproduzir fielmente o Bluetooth clássico SPP com hardware físico de impressora. Para homologação final de impressão, valide em **dispositivo Android real** com impressora térmica pareada.
-
----
-
-## Estrutura principal
-
-- `app/components/Home.vue`: tela principal do PDV
-- `app/services/BluetoothService.ts`: conexão Bluetooth clássico SPP + reconexão
-- `app/utils/EscPosBuilder.ts`: montagem dos bytes ESC/POS
-
----
-
-## Comandos úteis
+## Qualidade de Código
 
 ```bash
-# Build
-ns build android
-
-# Lint
-npm run lint
-
-# Rodar no Android
-ns run android --no-hmr
-
-# Rodar em device específico
-ns run android --no-hmr --device emulator-5554
+# ESLint com @antfu/eslint-config
+bun run lint
+bun run lint:fix
 ```
-
----
-
-## Entrega de APK (organizado)
-
-Para facilitar acesso ao APK, o projeto agora copia o arquivo final para:
-
-- `artifacts/apk/quermesse-da-paroquia-v<versao>.apk`
-- `artifacts/apk/quermesse-da-paroquia-latest.apk`
-
-### Gerar e organizar APK
-
-```bash
-npm run apk:build
-```
-
-### Publicar no GitHub Releases (com tag)
-
-```bash
-npm run release:github
-```
-
-Esse comando:
-
-1. lê a versão atual do `package.json` (ex.: `1.0.0`)
-2. usa o tag `v<versao>` (ex.: `v1.0.0`)
-3. cria o release no GitHub e envia o APK
-4. se o release já existir, faz upload/substituição do APK

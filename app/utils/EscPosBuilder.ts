@@ -183,7 +183,7 @@ export function buildItemTickets(data: TicketData): number[] {
             .toUpperCase()
     }
 
-    const eventTitle = printableUpper(data.eventName || 'TERME SAO JOSE')
+    const eventTitle = printableUpper(data.eventName || 'SAO JOSE')
     const ticketDate = formatDatePtBr(data.dateTime)
 
     // Expand items by quantity — 2 coxinhas = 2 individual tickets

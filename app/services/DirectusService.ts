@@ -325,6 +325,42 @@ class DirectusService {
     }
   }
 
+  // Gap #7: Atualiza returned_qty em pdv_sale_items
+  async updateSaleItemReturnedQty(saleItemId: string, returnedQty: number): Promise<boolean> {
+    try {
+      await this.client.request(
+        updateItem('pdv_sale_items', saleItemId, {
+          returned_qty: returnedQty,
+        }),
+      )
+      this.isOnline = true
+      return true
+    }
+    catch (error) {
+      console.error('DirectusService: Erro ao atualizar returned_qty', error)
+      this.isOnline = false
+      return false
+    }
+  }
+
+  // Gap #8: Busca sale_items de uma venda pelo sale_id no Directus
+  async getSaleItems(saleId: string): Promise<PdvSaleItem[]> {
+    try {
+      const items = await this.client.request(
+        readItems('pdv_sale_items', {
+          filter: { sale_id: { _eq: saleId } },
+        }),
+      )
+      this.isOnline = true
+      return items as PdvSaleItem[]
+    }
+    catch (error) {
+      console.error('DirectusService: Erro ao buscar itens da venda', error)
+      this.isOnline = false
+      return []
+    }
+  }
+
   // Status de conectividade
   getOnlineStatus(): boolean {
     return this.isOnline
