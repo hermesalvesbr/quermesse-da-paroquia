@@ -159,7 +159,7 @@ import { alert, confirm } from '@nativescript/core'
 import { computed, ref } from 'vue'
 import { getBluetoothService } from '../services/BluetoothService'
 import { pdvStore, type PaymentMethod } from '../services/PdvStoreDirectus'
-import { buildSaleTicket } from '../utils/EscPosBuilder'
+import { buildItemTickets } from '../utils/EscPosBuilder'
 
 const props = defineProps<{
     operatorName: string
@@ -216,7 +216,7 @@ async function onFinalize(): Promise<void> {
         // Step 3: Attempt print
         try {
             const btService = getBluetoothService()
-            const ticketBytes = buildSaleTicket({
+            const ticketBytes = buildItemTickets({
                 eventName: 'QUERMESSE SAO JOSE',
                 orderNumber: sale.orderNumber,
                 items: sale.lines.map(line => ({

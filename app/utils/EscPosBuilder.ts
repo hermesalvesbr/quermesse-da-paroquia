@@ -141,3 +141,86 @@ export function buildSaleTicket(data: TicketData): number[] {
 
     return b.build();
 }
+
+// ── Individual Item Tickets Builder ──
+
+export function buildItemTickets(data: TicketData): number[] {
+    const b = new EscPosBuilder();
+    b.init();
+
+    // Expand items by quantity — 2 coxinhas = 2 individual tickets
+    const individualItems: Array<{ name: string; unitPrice: number }> = []
+    
+    for (const item of data.items) {
+        const unitPrice = item.total / item.quantity
+        for (let i = 0; i < item.quantity; i++) {
+            individualItems.push({ name: item.name, unitPrice })
+        }
+    }
+
+    // Print each item as a separate ticket with full cut
+    for (let idx = 0; idx < individualItems.length; idx++) {
+        const item = individualItems[idx]
+        const priceFormatted = `R$ ${item.unitPrice.toFixed(2).replace('.', ',')}`
+
+        b.align(1) // Center
+
+        // Event name
+        b.bold(true)
+            .doubleSize(true)
+            .textLine(data.eventName)
+            .doubleSize(false)
+            .bold(false)
+            .lf()
+
+        // Order number
+        b.bold(true)
+            .doubleSize(true)
+            .textLine(`PEDIDO #${String(data.orderNumber).padStart(3, '0')}`)
+            .doubleSize(false)
+            .bold(false)
+            .lf()
+
+        // Item name (large, bold)
+        b.bold(true)
+            .doubleSize(true)
+            .textLine(item.name.toUpperCase())
+            .doubleSize(false)
+            .bold(false)
+            .lf()
+
+        // Price (large, bold)
+        b.bold(true)
+            .doubleSize(true)
+            .textLine(priceFormatted)
+            .doubleSize(false)
+            .bold(false)
+            .lf()
+
+        // Payment method
+        b.separator('-')
+            .textLine(`Pagamento: ${data.paymentMethod}`)
+            .lf()
+
+        // Operator
+        b.textLine(`Operador: ${data.operatorName}`)
+            .lf()
+
+        // Date/time
+        b.textLine(data.dateTime)
+            .lf()
+
+        // Instructions
+        b.bold(true)
+            .textLine('Apresente este ticket')
+            .textLine('para retirar o item')
+            .bold(false)
+            .lf()
+            .lf()
+
+        // Full cut after each ticket
+        b.cut()
+    }
+
+    return b.build();
+}

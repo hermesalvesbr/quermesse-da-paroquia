@@ -1,4 +1,4 @@
-import { createDirectus, rest, staticToken, readItems, createItem, updateItem, type DirectusClient, type RestClient } from '@directus/sdk'
+import { createDirectus, rest, staticToken, readItems, createItem, updateItem, deleteItems, type DirectusClient, type RestClient } from '@directus/sdk'
 
 // Schemas das collections Directus
 interface PdvOperator {
@@ -58,7 +58,6 @@ interface PdvSaleItem {
 
 // Schema completo do Directus
 // NOTA: Declarado como `any` para compatibilidade com @directus/sdk v21
-// TODO: Investigar tipagem correta para collections customizadas
 type DirectusSchema = any
 
 class DirectusService {
@@ -231,6 +230,65 @@ class DirectusService {
     }
     catch (error) {
       console.error('DirectusService: Erro ao cancelar venda', error)
+      this.isOnline = false
+      return false
+    }
+  }
+
+  // Gap #4: Atualiza status de impressão no Directus
+  async markSalePrinted(saleId: string): Promise<boolean> {
+    try {
+      await this.client.request(
+        updateItem('pdv_sales', saleId, {
+          printed: true,
+        }),
+      )
+      this.isOnline = true
+      return true
+    }
+    catch (error) {
+      console.error('DirectusService: Erro ao marcar venda como impressa', error)
+      this.isOnline = false
+      return false
+    }
+  }
+
+  // Gap #5: Atualiza itens de uma venda após troca
+  async updateSaleItems(
+    saleId: string,
+    newItems: Omit<PdvSaleItem, 'id' | 'sale_id'>[],
+    newTotal: number,
+  ): Promise<boolean> {
+    try {
+      // 1. Remove itens antigos da venda
+      await this.client.request(
+        deleteItems('pdv_sale_items', {
+          filter: { sale_id: { _eq: saleId } },
+        }),
+      )
+
+      // 2. Cria os novos itens
+      for (const item of newItems) {
+        await this.client.request(
+          createItem('pdv_sale_items', {
+            ...item,
+            sale_id: saleId,
+          }),
+        )
+      }
+
+      // 3. Atualiza total da venda
+      await this.client.request(
+        updateItem('pdv_sales', saleId, {
+          total_amount: newTotal,
+        }),
+      )
+
+      this.isOnline = true
+      return true
+    }
+    catch (error) {
+      console.error('DirectusService: Erro ao atualizar itens da venda', error)
       this.isOnline = false
       return false
     }

@@ -64,7 +64,7 @@ import { alert } from '@nativescript/core'
 import { computed } from 'vue'
 import { getBluetoothService } from '../services/BluetoothService'
 import { pdvStore, type SaleRecord } from '../services/PdvStoreDirectus'
-import { buildSaleTicket } from '../utils/EscPosBuilder'
+import { buildItemTickets } from '../utils/EscPosBuilder'
 
 const props = defineProps<{
     operatorName: string
@@ -101,7 +101,7 @@ async function onReprint(sale: SaleRecord): Promise<void> {
     }
 
     try {
-        const ticketBytes = buildSaleTicket({
+        const ticketBytes = buildItemTickets({
             eventName: 'QUERMESSE SAO JOSE',
             orderNumber: sale.orderNumber || 0,
             items: sale.lines.map(line => ({
@@ -117,7 +117,7 @@ async function onReprint(sale: SaleRecord): Promise<void> {
 
         await btService.writeBytes(ticketBytes)
         pdvStore.markAsPrinted(sale.id)
-        await alert('Ticket impresso com sucesso!')
+        await alert('Tickets impressos com sucesso!')
     } catch (error) {
         await alert(`Erro ao imprimir: ${error}`)
     }

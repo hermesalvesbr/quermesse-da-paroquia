@@ -43,6 +43,8 @@
                         :operatorName="operatorName"
                         :operatorLoginAt="operatorLoginAt"
                         :printerConnected="printerConnected"
+                        :internetConnected="internetConnected"
+                        :bluetoothEnabled="bluetoothEnabled"
                         @requestChangeOperator="openOperatorModal"
                     />
                 </GridLayout>
@@ -80,13 +82,14 @@
                     <StackLayout class="modal-card">
                         <Image src="~/assets/softagon.png" stretch="aspectFit" height="44" class="m-b-4" horizontalAlignment="center" />
                         <Label text="Quem está operando o caixa?" class="title text-center m-b-2" />
-                        <Label text="Informe o nome para iniciar o PDV." class="subtitle text-center m-b-4" />
-                        <TextField
-                            v-model="operatorInput"
-                            hint="Nome do operador"
-                            class="operator-input"
+                        <Label text="Selecione o operador cadastrado." class="subtitle text-center m-b-4" />
+                        <ListPicker
+                            :items="operatorNames"
+                            :selectedIndex="selectedOperatorIndex"
+                            @selectedIndexChange="onOperatorPickerChange"
+                            class="m-b-4"
                         />
-                        <Button text="INICIAR CAIXA" class="action-primary" @tap="saveOperator" />
+                        <Button text="INICIAR CAIXA" class="action-primary" :isEnabled="operatorNames.length > 0" @tap="saveOperator" />
                     </StackLayout>
                 </GridLayout>
             </GridLayout>
@@ -95,10 +98,12 @@
 </template>
 
 <script setup lang="ts">
-import { alert } from '@nativescript/core'
-import { computed, onMounted, ref } from 'vue'
+import { Application, alert } from '@nativescript/core'
+import { connectionType, getConnectionType, startMonitoring, stopMonitoring } from '@nativescript/core/connectivity'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { getBluetoothService } from '../services/BluetoothService'
 import { OperatorSessionService } from '../services/OperatorSessionService'
+import { pdvStore } from '../services/PdvStoreDirectus'
 import PdvPage from './PdvPage.vue'
 import PrinterPage from './PrinterPage.vue'
 import RelatoriosPage from './RelatoriosPage.vue'
@@ -112,10 +117,16 @@ const sessionService = new OperatorSessionService()
 const isMenuOpen = ref(false)
 const activePage = ref<ActivePage>('pdv')
 const showOperatorModal = ref(false)
-const operatorInput = ref('')
+const selectedOperatorIndex = ref(0)
 const operatorName = ref('')
 const operatorLoginAt = ref('')
 const printerConnected = ref(false)
+const internetConnected = ref(true)
+const bluetoothEnabled = ref(false)
+const startupCheckDone = ref(false)
+
+// Gap #1: Lista de operadores vem do Directus (via pdvStore)
+const operatorNames = computed(() => pdvStore.operators.map(op => op.name))
 
 const pageTitle = computed(() => {
     if (activePage.value === 'printer') {
@@ -141,7 +152,8 @@ const operatorLabel = computed(() => {
     return operatorName.value ? `Operador: ${operatorName.value}` : 'Operador não identificado'
 })
 
-onMounted(() => {
+onMounted(async () => {
+    await pdvStore.initialize()
     loadOperator()
 
     // Wire up global BT status tracking
@@ -150,8 +162,79 @@ onMounted(() => {
         console.log(`[AppShell BT] ${status}`)
         printerConnected.value = btService.getConnectedStatus()
     })
-    printerConnected.value = btService.getConnectedStatus()
+
+    await refreshConnectivityStatus()
+
+    startMonitoring((newType) => {
+        internetConnected.value = newType !== connectionType.none
+        tryReloadCatalogIfNeeded()
+    })
+
+    Application.on(Application.resumeEvent, onAppResume)
+
+    await runStartupCriticalChecks()
 })
+
+onUnmounted(() => {
+    stopMonitoring()
+    Application.off(Application.resumeEvent, onAppResume)
+})
+
+async function refreshConnectivityStatus(): Promise<void> {
+    const btService = getBluetoothService()
+    bluetoothEnabled.value = await btService.isEnabled()
+    internetConnected.value = getConnectionType() !== connectionType.none
+    printerConnected.value = btService.getConnectedStatus()
+}
+
+async function runStartupCriticalChecks(): Promise<void> {
+    if (startupCheckDone.value) {
+        return
+    }
+
+    const warnings: string[] = []
+
+    if (!internetConnected.value) {
+        warnings.push('• Internet indisponível. O catálogo não será atualizado do Directus.')
+    }
+
+    if (!bluetoothEnabled.value) {
+        warnings.push('• Bluetooth desligado. A impressão ficará indisponível.')
+    }
+
+    if (pdvStore.inventoryItems.length === 0) {
+        warnings.push('• Sem produtos carregados. Verifique internet e dados publicados no Directus.')
+    }
+
+    startupCheckDone.value = true
+
+    if (warnings.length === 0) {
+        return
+    }
+
+    await alert({
+        title: 'Checklist crítico na abertura',
+        message: `${warnings.join('\n')}\n\nAbra Configurações e Impressora para corrigir antes de operar o caixa.`,
+        okButtonText: 'Entendi',
+    })
+}
+
+function onAppResume(): void {
+    refreshConnectivityStatus().catch((error) => {
+        console.warn('Falha ao atualizar status de conectividade no resume:', error)
+    })
+    tryReloadCatalogIfNeeded()
+}
+
+function tryReloadCatalogIfNeeded(): void {
+    if (!internetConnected.value || pdvStore.inventoryItems.length > 0) {
+        return
+    }
+
+    pdvStore.reloadFromDirectus().catch((error) => {
+        console.warn('Falha ao recarregar catálogo do Directus:', error)
+    })
+}
 
 function toggleMenu(): void {
     isMenuOpen.value = !isMenuOpen.value
@@ -175,7 +258,9 @@ function loadOperator(): void {
 }
 
 function openOperatorModal(): void {
-    operatorInput.value = operatorName.value
+    // Pré-seleciona o operador atual no picker
+    const currentIdx = pdvStore.operators.findIndex(op => op.name === operatorName.value)
+    selectedOperatorIndex.value = currentIdx >= 0 ? currentIdx : 0
     showOperatorModal.value = true
 }
 
@@ -184,12 +269,21 @@ function onDrawerChangeOperator(): void {
     openOperatorModal()
 }
 
+function onOperatorPickerChange(args: { value: number }): void {
+    selectedOperatorIndex.value = args.value
+}
+
 async function saveOperator(): Promise<void> {
     try {
-        const session = sessionService.saveOperator(operatorInput.value)
+        const selected = pdvStore.operators[selectedOperatorIndex.value]
+        if (!selected) {
+            await alert('Nenhum operador disponível. Verifique a conexão com o servidor.')
+            return
+        }
+
+        const session = sessionService.saveOperator(selected.name)
         operatorName.value = session.name
         operatorLoginAt.value = formatDate(session.loginAt)
-        operatorInput.value = ''
         showOperatorModal.value = false
     } catch (error) {
         await alert(String(error))

@@ -35,9 +35,11 @@ export type PrintStatus = 'printed' | 'pending'
 
 export interface SaleRecord {
   id: string
+  directusSaleId?: string
   orderNumber: number
   createdAt: string
   operatorName: string
+  operatorId?: string
   paymentMethod: PaymentMethod
   status: 'completed' | 'canceled'
   printStatus: PrintStatus
@@ -111,7 +113,7 @@ let isInitialized = false
 
 // Fila de sincronização offline
 interface SyncQueueItem {
-  type: 'sale' | 'cancel'
+  type: 'sale' | 'cancel' | 'stock-return' | 'mark-printed'
   data: any
   timestamp: string
 }
@@ -181,6 +183,7 @@ async function initialize(): Promise<void> {
     // Salva cache local
     ApplicationSettings.setString(CACHE_PRODUCTS_KEY, JSON.stringify(productsData))
     ApplicationSettings.setString(CACHE_OPERATORS_KEY, JSON.stringify(operatorsData))
+    ApplicationSettings.setString('pdv.directus.categories', JSON.stringify(categoriesData))
 
     // Sincroniza vendas pendentes
     await syncPendingSales()
@@ -322,14 +325,32 @@ async function syncPendingSales(): Promise<void> {
     try {
       if (item.type === 'sale') {
         const saleData = item.data
-        await directusService.createSale(saleData.sale, saleData.items)
+        const directusSaleId = await directusService.createSale(saleData.sale, saleData.items)
+        // Atualiza o directusSaleId na venda local se possível
+        if (directusSaleId && saleData.localSaleId) {
+          const localSale = sales.find(s => s.id === saleData.localSaleId)
+          if (localSale) {
+            localSale.directusSaleId = directusSaleId
+            saveSalesToStorage()
+          }
+        }
         toRemove.push(i)
-        console.log(`PdvStoreDirectus: Venda ${saleData.sale.id} sincronizada`)
+        console.log(`PdvStoreDirectus: Venda ${saleData.localSaleId || 'offline'} sincronizada (${directusSaleId})`)
       }
       else if (item.type === 'cancel') {
         await directusService.cancelSale(item.data.saleId)
         toRemove.push(i)
         console.log(`PdvStoreDirectus: Cancelamento ${item.data.saleId} sincronizado`)
+      }
+      else if (item.type === 'stock-return') {
+        await directusService.updateProductStock(item.data.productId, item.data.newStock)
+        toRemove.push(i)
+        console.log(`PdvStoreDirectus: Retorno de estoque ${item.data.productId} sincronizado`)
+      }
+      else if (item.type === 'mark-printed') {
+        await directusService.markSalePrinted(item.data.saleId)
+        toRemove.push(i)
+        console.log(`PdvStoreDirectus: Status impresso ${item.data.saleId} sincronizado`)
       }
     }
     catch (error) {
@@ -430,24 +451,25 @@ async function finalizeSale(operatorName: string, paymentMethod: PaymentMethod =
 
   const total = lines.reduce((sum, line) => sum + line.total, 0)
 
-  const sale: SaleRecord = {
-    id: `V-${Date.now()}`,
-    orderNumber: getNextOrderNumber(),
-    createdAt: new Date().toISOString(),
-    operatorName: operatorName.trim() || 'Operador',
-    paymentMethod,
-    status: 'completed',
-    printStatus: 'pending',
-    lines,
-    total,
-  }
-
   // Busca ID do operador
   const operator = operators.find(op => op.name === operatorName)
   const operatorId = operator?.id || operators[0]?.id
 
   if (!operatorId) {
     throw new Error('Nenhum operador configurado no sistema.')
+  }
+
+  const sale: SaleRecord = {
+    id: `V-${Date.now()}`,
+    orderNumber: getNextOrderNumber(),
+    createdAt: new Date().toISOString(),
+    operatorName: operatorName.trim() || 'Operador',
+    operatorId,
+    paymentMethod,
+    status: 'completed',
+    printStatus: 'pending',
+    lines,
+    total,
   }
 
   // Mapeia método de pagamento
@@ -466,8 +488,9 @@ async function finalizeSale(operatorName: string, paymentMethod: PaymentMethod =
       total_price: line.total,
     }))
 
-    const saleId = await directusService.createSale(
+    const directusSaleId = await directusService.createSale(
       {
+        sale_number: sale.orderNumber,
         operator_id: operatorId,
         total_amount: total,
         payment_method: paymentMethodMap[paymentMethod],
@@ -478,7 +501,10 @@ async function finalizeSale(operatorName: string, paymentMethod: PaymentMethod =
       saleItems,
     )
 
-    if (saleId) {
+    if (directusSaleId) {
+      // Gap #2/#3: Guarda o ID do Directus para cancelamento/sync futuro
+      sale.directusSaleId = directusSaleId
+
       // Sucesso - atualiza estoque local
       for (const line of lines) {
         const stockItem = inventoryItems.find(inv => inv.id === line.id)
@@ -487,7 +513,7 @@ async function finalizeSale(operatorName: string, paymentMethod: PaymentMethod =
         }
       }
 
-      console.log(`PdvStoreDirectus: Venda ${sale.id} sincronizada com Directus (${saleId})`)
+      console.log(`PdvStoreDirectus: Venda ${sale.id} sincronizada com Directus (${directusSaleId})`)
     }
     else {
       throw new Error('Falha ao criar venda no Directus')
@@ -500,7 +526,9 @@ async function finalizeSale(operatorName: string, paymentMethod: PaymentMethod =
     addToSyncQueue({
       type: 'sale',
       data: {
+        localSaleId: sale.id,
         sale: {
+          sale_number: sale.orderNumber,
           operator_id: operatorId,
           total_amount: total,
           payment_method: paymentMethodMap[paymentMethod],
@@ -555,14 +583,26 @@ async function cancelSale(saleId: string, reason: string): Promise<SaleRecord> {
   sale.canceledAt = new Date().toISOString()
   sale.cancelReason = reason.trim() || 'Cancelada no caixa'
 
-  // Tenta sincronizar com Directus
-  try {
-    // Nota: precisaríamos do saleId do Directus, não temos ainda
-    // Por ora, apenas marca como cancelada localmente
-    console.log(`PdvStoreDirectus: Venda ${saleId} cancelada localmente`)
-  }
-  catch (error) {
-    console.error('PdvStoreDirectus: Erro ao cancelar no Directus', error)
+  // Gap #2: Sincroniza cancelamento com Directus
+  if (sale.directusSaleId) {
+    try {
+      const success = await directusService.cancelSale(sale.directusSaleId)
+      if (success) {
+        console.log(`PdvStoreDirectus: Venda ${saleId} cancelada no Directus (${sale.directusSaleId})`)
+      } else {
+        throw new Error('Falha ao cancelar no Directus')
+      }
+    }
+    catch (error) {
+      console.error('PdvStoreDirectus: Erro ao cancelar no Directus, adicionando à fila', error)
+      addToSyncQueue({
+        type: 'cancel',
+        data: { saleId: sale.directusSaleId },
+        timestamp: new Date().toISOString(),
+      })
+    }
+  } else {
+    console.warn(`PdvStoreDirectus: Venda ${saleId} sem directusSaleId — cancelamento apenas local`)
   }
 
   saveSalesToStorage()
@@ -574,6 +614,13 @@ function markAsPrinted(saleId: string): void {
   if (sale) {
     sale.printStatus = 'printed'
     saveSalesToStorage()
+
+    // Gap #4: Sincroniza status de impressão com Directus
+    if (sale.directusSaleId) {
+      directusService.markSalePrinted(sale.directusSaleId).catch(err => {
+        console.warn('PdvStoreDirectus: Falha ao marcar impressão no Directus:', err)
+      })
+    }
   }
 }
 
@@ -677,11 +724,40 @@ function exchangeLatestSaleItem(fromItemId: string, toItemId: string, quantity: 
   // Recalcula total
   latestCompleted.total = latestCompleted.lines.reduce((sum, line) => sum + line.total, 0)
 
+  // Gap #5: Sincroniza troca com Directus (estoque + itens da venda)
+  if (latestCompleted.directusSaleId) {
+    // Atualiza estoque de ambos os produtos no Directus
+    directusService.updateProductStock(fromItemId, fromInventory.stock).catch(err => {
+      console.warn('PdvStoreDirectus: Falha ao atualizar estoque (from) no Directus:', err)
+    })
+    directusService.updateProductStock(toItemId, toInventory.stock).catch(err => {
+      console.warn('PdvStoreDirectus: Falha ao atualizar estoque (to) no Directus:', err)
+    })
+
+    // Atualiza itens da venda no Directus
+    const updatedItems = latestCompleted.lines
+      .filter(line => line.quantity > 0)
+      .map(line => ({
+        product_id: line.id,
+        quantity: line.quantity,
+        unit_price: line.unitPrice,
+        total_price: line.total,
+      }))
+
+    directusService.updateSaleItems(
+      latestCompleted.directusSaleId,
+      updatedItems,
+      latestCompleted.total,
+    ).catch(err => {
+      console.warn('PdvStoreDirectus: Falha ao atualizar itens da venda no Directus:', err)
+    })
+  }
+
   saveSalesToStorage()
   return latestCompleted
 }
 
-function returnItemsToStock(itemId: string, quantity: number, _note: string): void {
+function returnItemsToStock(itemId: string, quantity: number, note: string): void {
   if (quantity <= 0) {
     throw new Error('Quantidade inválida para retorno ao estoque.')
   }
@@ -692,10 +768,23 @@ function returnItemsToStock(itemId: string, quantity: number, _note: string): vo
   }
 
   stockItem.stock += quantity
-  // Sincroniza estoque com Directus se possível
-  directusService.updateProductStock(itemId, stockItem.stock).catch(err => {
-    console.warn('Não foi possível sincronizar estoque:', err)
-  })
+
+  // Gap #6: Sincroniza estoque com Directus e registra auditoria
+  directusService.updateProductStock(itemId, stockItem.stock)
+    .then(success => {
+      if (success) {
+        console.log(`PdvStoreDirectus: Estoque de ${stockItem.name} atualizado no Directus: +${quantity} (${note || 'retorno manual'})`)
+      }
+    })
+    .catch(err => {
+      console.warn('PdvStoreDirectus: Falha ao sincronizar retorno de estoque:', err)
+      // Adiciona à fila de sync para tentar depois
+      addToSyncQueue({
+        type: 'stock-return' as SyncQueueItem['type'],
+        data: { productId: itemId, newStock: stockItem.stock, note },
+        timestamp: new Date().toISOString(),
+      })
+    })
 }
 
 function getStartOfWeek(date: Date): Date {

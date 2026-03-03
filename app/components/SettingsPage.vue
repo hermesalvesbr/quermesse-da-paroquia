@@ -81,6 +81,25 @@
                 <Label :text="printerConnected ? 'Status: conectada' : 'Status: desconectada'" :class="printerConnected ? 'status-text-online' : 'status-text-offline'" class="m-t-1 font-bold" />
                 <Label text="Use o menu para abrir a tela de Impressora Bluetooth." class="subtitle m-t-1" textWrap="true" />
             </StackLayout>
+
+            <StackLayout class="glass-card">
+                <Label text="Conectividade crítica" class="section-title" />
+                <Label
+                    :text="internetConnected ? 'Internet: conectada' : 'Internet: desconectada'"
+                    :class="internetConnected ? 'status-text-online' : 'status-text-offline'"
+                    class="m-t-1 font-bold"
+                />
+                <Label
+                    :text="bluetoothEnabled ? 'Bluetooth do aparelho: ligado' : 'Bluetooth do aparelho: desligado'"
+                    :class="bluetoothEnabled ? 'status-text-online' : 'status-text-offline'"
+                    class="m-t-1 font-bold"
+                />
+                <Label
+                    text="Se internet ou Bluetooth estiverem indisponíveis, o caixa opera com limitações."
+                    class="subtitle m-t-1"
+                    textWrap="true"
+                />
+            </StackLayout>
         </StackLayout>
     </ScrollView>
 </template>
@@ -98,6 +117,8 @@ defineProps<{
     operatorName: string
     operatorLoginAt: string
     printerConnected: boolean
+    internetConnected: boolean
+    bluetoothEnabled: boolean
 }>()
 
 defineEmits<{
