@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDV Quermesse - Downloads APK</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #f6f7fb; color: #1f2937; }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 24px; }
+    .card { background: #fff; border-radius: 14px; padding: 18px; margin-bottom: 14px; box-shadow: 0 4px 14px rgba(0,0,0,.06); }
+    h1 { margin: 0 0 8px; }
+    .muted { color: #6b7280; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .tag { background: #eef2ff; color: #3730a3; border-radius: 999px; padding: 4px 10px; font-weight: 700; }
+    .btn { display: inline-block; padding: 8px 14px; border-radius: 10px; text-decoration: none; font-weight: 700; }
+    .btn-primary { background: #111827; color: #fff; }
+    .btn-secondary { background: #e5e7eb; color: #111827; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <h1>PDV Quermesse - APK</h1>
+      <p class="muted">Downloads públicos por versão (tag). Sempre baixe a última estável.</p>
+      <div id="latest" class="hidden"></div>
+    </section>
+
+    <section class="card">
+      <h2 style="margin-top:0">Versões</h2>
+      <div id="list" class="muted">Carregando releases...</div>
+    </section>
+  </main>
+
+  <script>
+    const owner = 'hermesalvesbr';
+    const repo = 'quermesse-da-paroquia';
+    const releasesUrl = `https://api.github.com/repos/${owner}/${repo}/releases`;
+
+    const list = document.getElementById('list');
+    const latest = document.getElementById('latest');
+
+    function findApk(assets) {
+      return assets.find(a => a.name.endsWith('.apk'));
+    }
+
+    function itemTemplate(release, isLatest) {
+      const apk = findApk(release.assets || []);
+      const published = new Date(release.published_at).toLocaleString('pt-BR');
+      const apkLink = apk
+        ? `<a class="btn btn-primary" href="${apk.browser_download_url}">Baixar APK</a>`
+        : `<span class="muted">APK não encontrado nesta release</span>`;
+
+      return `
+        <article class="card" style="margin: 10px 0 0;">
+          <div class="row" style="justify-content: space-between;">
+            <div class="row">
+              <span class="tag">${release.tag_name}</span>
+              ${isLatest ? '<strong>Última</strong>' : ''}
+            </div>
+            <small class="muted">${published}</small>
+          </div>
+          <p style="margin: 10px 0;">${release.name || release.tag_name}</p>
+          <div class="row">
+            ${apkLink}
+            <a class="btn btn-secondary" href="${release.html_url}">Notas da release</a>
+          </div>
+        </article>
+      `;
+    }
+
+    async function load() {
+      try {
+        const response = await fetch(releasesUrl);
+        if (!response.ok) throw new Error('Falha ao consultar releases');
+        const releases = await response.json();
+
+        if (!Array.isArray(releases) || releases.length === 0) {
+          list.textContent = 'Nenhuma release publicada ainda.';
+          return;
+        }
+
+        const latestRelease = releases[0];
+        latest.innerHTML = itemTemplate(latestRelease, true);
+        latest.classList.remove('hidden');
+
+        list.innerHTML = releases.map((rel, index) => itemTemplate(rel, index === 0)).join('');
+      } catch (error) {
+        list.textContent = 'Erro ao carregar releases. Tente novamente mais tarde.';
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>
