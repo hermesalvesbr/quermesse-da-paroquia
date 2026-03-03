@@ -6,13 +6,14 @@
   "scripts": {
     "android": "ns run android --no-hmr",
     "build:android": "ns build android",
-    "apk:organize": "node scripts/export-apk.mjs",
-    "apk:build": "npm run build:android && npm run apk:organize",
-    "release:github": "node scripts/release-apk.mjs",
+    "apk:organize": "bun scripts/export-apk.mjs",
+    "apk:build": "bun run build:android && bun run apk:organize",
+    "release:github": "bun scripts/release-apk.mjs",
     "lint": "eslint app eslint.config.mjs",
     "lint:fix": "eslint app eslint.config.mjs --fix"
   },
   "dependencies": {
+    "@directus/sdk": "^21.1.0",
     "@nativescript/core": "~9.0.0",
     "nativescript-vue": "^3.0.0"
   },

@@ -6,15 +6,17 @@
                 <Label :text="`⚠️ ${pendingPrintCount} venda(s) aguardando impressão`" class="pending-alert-text" />
             </StackLayout>
 
-            <GridLayout columns="*, *" columnGap="10" class="m-b-3">
-                <Button col="0" text="CANCELAR ÚLTIMA" class="action-danger-sm" @tap="onCancelLatestSale" />
-                <Button col="1" text="TROCA MOCK" class="action-secondary-sm" @tap="onMockExchange" />
-            </GridLayout>
-            <Button text="RETORNAR 1 DOCE AO ESTOQUE" class="action-secondary-sm m-b-4" @tap="onReturnDoceStock" />
+            <StackLayout rowGap="12" class="m-b-4">
+                <GridLayout columns="*, *" columnGap="12">
+                    <Button col="0" text="CANCELAR ÚLTIMA" class="action-danger-sm" @tap="onCancelLatestSale" />
+                    <Button col="1" text="TROCA MOCK" class="action-secondary-sm" @tap="onMockExchange" />
+                </GridLayout>
+                <Button text="RETORNAR 1 DOCE AO ESTOQUE" class="action-secondary-sm" @tap="onReturnDoceStock" />
+            </StackLayout>
 
             <Label text="Últimas vendas" class="section-title m-b-2" />
 
-            <StackLayout v-if="recentSales.length === 0" class="soft-panel p-3">
+            <StackLayout v-if="recentSales.length === 0" class="soft-panel">
                 <Label text="Nenhuma venda registrada ainda." class="subtitle" />
             </StackLayout>
 
@@ -61,7 +63,7 @@
 import { alert } from '@nativescript/core'
 import { computed } from 'vue'
 import { getBluetoothService } from '../services/BluetoothService'
-import { pdvStore, type SaleRecord } from '../services/PdvStore'
+import { pdvStore, type SaleRecord } from '../services/PdvStoreDirectus'
 import { buildSaleTicket } from '../utils/EscPosBuilder'
 
 const props = defineProps<{
@@ -123,7 +125,7 @@ async function onReprint(sale: SaleRecord): Promise<void> {
 
 async function onCancelLatestSale(): Promise<void> {
     try {
-        const sale = pdvStore.cancelLatestSale('Cancelamento no caixa')
+        const sale = await pdvStore.cancelLatestSale('Cancelamento no caixa')
         await alert(`Venda ${sale.id} cancelada e itens retornados ao estoque.`)
     } catch (error) {
         await alert(String(error))
@@ -132,7 +134,7 @@ async function onCancelLatestSale(): Promise<void> {
 
 async function onMockExchange(): Promise<void> {
     try {
-        const sale = pdvStore.exchangeLatestSaleItem('coxinha', 'pastel', 1, props.operatorName)
+        const sale = await pdvStore.exchangeLatestSaleItem('coxinha', 'pastel', 1, props.operatorName)
         await alert(`Troca registrada na venda ${sale.id}: 1 coxinha por 1 pastel.`)
     } catch (error) {
         await alert(String(error))

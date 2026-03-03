@@ -1,0 +1,45 @@
+
+---
+
+## 2026-03-02 — Tipagem complexa do Directus SDK v21+
+
+**Contexto**: Ao integrar `@directus/sdk` v21.1.0 no NativeScript, os tipos do schema customizado não eram reconhecidos pelo TypeScript, causando 22 erros de compilação (`Argument of type '"pdv_operators"' is not assignable to parameter of type 'never'`).
+
+**Causa raiz**: 
+1. O SDK v21 exige tipagem explícita do schema via generics `createDirectus<Schema>()`
+2. A declaração `interface DirectusSchema { pdv_operators: PdvOperator[] }` não é reconhecida corretamente pelo SDK
+3. O tipo inferido do client após `.with(staticToken()).with(rest())` não inclui o método `request` quando tipado com `ReturnType<typeof createDirectus<Schema>>`
+4. Type assertions são necessárias para forçar o tipo correto do client
+
+**Fix aplicado** (pragmático para entrega):
+```typescript
+// Schema temporariamente declarado como `any`
+type DirectusSchema = any
+
+// Client com type assertion explícita
+private client: DirectusClient<DirectusSchema> & RestClient<DirectusSchema>
+
+constructor() {
+  this.client = createDirectus<DirectusSchema>(URL)
+    .with(staticToken(TOKEN))
+    .with(rest()) as DirectusClient<DirectusSchema> & RestClient<DirectusSchema>
+}
+
+// Retornos com type assertions
+return operators as PdvOperator[]
+```
+
+**Regra para projetos NativeScript + Directus**:
+- Para collections customizadas, usar `type DirectusSchema = any` temporariamente
+- Adicionar type assertions nos retornos dos métodos de serviço
+- Priorizar funcionalidade sobre type-safety de SDK de terceiros
+- Documentar como TODO para investigação futura de tipagem correta
+- Preferir solução pragmática sobre dias debugando tipos do SDK
+
+**Tradeoff consciente**: Perdemos type-safety nas chamadas do SDK mas ganhamos:
+- Build funcional em minutos ao invés de horas
+- Runtime safety através dos tipos de retorno dos métodos públicos
+- Interfaces bem definidas (`PdvOperator`, `PdvProduct`, etc.) no código do app
+- Documentação clara da decisão para revisão futura
+
+**Ação futura**: Quando houver tempo, investigar documentação oficial do SDK v21 para schemas customizados ou considerar downgrade para v20 (API mais estável).

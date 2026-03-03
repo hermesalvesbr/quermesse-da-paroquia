@@ -31,7 +31,7 @@
                 </StackLayout>
 
                 <StackLayout v-else class="m-t-2">
-                    <GridLayout columns="auto, *" class="soft-panel p-3 m-b-2" columnGap="8">
+                    <GridLayout columns="auto, *" class="soft-panel m-b-3" columnGap="8">
                         <Label col="0" :text="permissionStatus.connect ? '✅' : '❌'" class="text-lg" />
                         <StackLayout col="1">
                             <Label text="BLUETOOTH_CONNECT" class="item-title" />
@@ -39,7 +39,7 @@
                         </StackLayout>
                     </GridLayout>
 
-                    <GridLayout columns="auto, *" class="soft-panel p-3 m-b-2" columnGap="8">
+                    <GridLayout columns="auto, *" class="soft-panel m-b-3" columnGap="8">
                         <Label col="0" :text="permissionStatus.scan ? '✅' : '❌'" class="text-lg" />
                         <StackLayout col="1">
                             <Label text="BLUETOOTH_SCAN" class="item-title" />

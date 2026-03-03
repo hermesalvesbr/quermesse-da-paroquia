@@ -1,7 +1,7 @@
 <template>
     <ScrollView>
         <StackLayout class="screen p-3">
-            <StackLayout class="glass-card">
+            <StackLayout class="glass-card" rowGap="8">
                 <Label text="📊 Relatório do dia" class="section-title" />
                 <GridLayout columns="*, auto" class="m-t-2">
                     <Label col="0" text="Vendas concluídas" class="subtitle" />
@@ -34,6 +34,7 @@
                     :key="item.id"
                     columns="auto, *, auto"
                     columnGap="8"
+                    class="m-b-2"
                 >
                     <Label col="0" :text="`${idx + 1}.`" class="meta-text" />
                     <Label col="1" :text="item.name" class="subtitle" />
@@ -41,7 +42,7 @@
                 </GridLayout>
             </StackLayout>
 
-            <StackLayout class="glass-card">
+            <StackLayout class="glass-card" rowGap="8">
                 <Label text="📈 Relatório da semana" class="section-title" />
                 <GridLayout columns="*, auto" class="m-t-2">
                     <Label col="0" text="Vendas concluídas" class="subtitle" />
@@ -66,7 +67,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { pdvStore } from '../services/PdvStore'
+import { pdvStore } from '../services/PdvStoreDirectus'
 
 const dailyReport = computed(() => pdvStore.getReport('day'))
 const weeklyReport = computed(() => pdvStore.getReport('week'))

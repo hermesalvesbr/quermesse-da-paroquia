@@ -5,6 +5,7 @@
     "": {
       "name": "pdv-app",
       "dependencies": {
+        "@directus/sdk": "^21.1.0",
         "@nativescript/core": "~9.0.0",
         "nativescript-vue": "^3.0.0",
       },
@@ -169,6 +170,8 @@
     "@csstools/selector-specificity": ["@csstools/selector-specificity@5.0.0", "", { "peerDependencies": { "postcss-selector-parser": "^7.0.0" } }, "sha512-PCqQV3c4CoVm3kdPhyeZ07VmBRdH2EpMFA/pd9OASpOEC3aXNGoqPDAZ80D0cLpMBxnmk0+yNhGsEx31hq7Gtw=="],
 
     "@csstools/utilities": ["@csstools/utilities@2.0.0", "", { "peerDependencies": { "postcss": "^8.4" } }, "sha512-5VdOr0Z71u+Yp3ozOx8T11N703wIFGVRgOWbOZMKgglPJsWA54MRIoMNVMa7shUToIhx5J8vX4sOZgD2XiihiQ=="],
+
+    "@directus/sdk": ["@directus/sdk@21.1.0", "", {}, "sha512-Ig8zZAQDbc7QMIM54N+x71C04lni9MN9yalNAezjDjFdNknTJzupDY7V5cb+kOJL8GsqDE9Bg8xq8xCmkDVs5A=="],
 
     "@discoveryjs/json-ext": ["@discoveryjs/json-ext@0.5.7", "", {}, "sha512-dBVuXR082gk3jsFp7Rd/JI4kytwGHecnCoTtXFb7DB6CNHp4rg5k1bhg0nWdLGLnOV71lmDzGQaLMy8iPLY0pw=="],
 

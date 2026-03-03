@@ -25,7 +25,7 @@
                     :class="isScanning ? 'opacity-50' : ''"
                 />
 
-                <StackLayout v-if="printers.length === 0" class="m-t-3 p-3 soft-panel">
+                <StackLayout v-if="printers.length === 0" class="m-t-3 soft-panel">
                     <Label text="Nenhuma impressora listada." class="subtitle" />
                     <Label text="Pareie no Android e depois toque em buscar." class="meta-text" />
                 </StackLayout>
@@ -35,7 +35,7 @@
                         v-for="(item, index) in printers"
                         :key="item.address"
                         columns="*, auto"
-                        class="p-3 border-b border-gray-200"
+                        class="border-b border-gray-200 m-b-2"
                         columnGap="8"
                         @tap="onPrinterSelect(index)"
                     >
@@ -53,7 +53,7 @@
                 </StackLayout>
             </StackLayout>
 
-            <GridLayout columns="*, *" columnGap="10" class="m-b-3">
+            <GridLayout columns="*, *" columnGap="12" class="m-b-3">
                 <Button
                     col="0"
                     text="RECONECTAR"
@@ -79,7 +79,7 @@
                 <Button text="IMPRIMIR TESTE" class="action-primary m-t-3" :isEnabled="isConnected" :class="!isConnected ? 'opacity-50' : ''" @tap="printTest" />
             </StackLayout>
 
-            <StackLayout class="soft-panel p-3 m-b-6">
+            <StackLayout class="soft-panel m-b-6">
                 <Label text="Status" class="text-sm font-bold" />
                 <Label :text="statusMessage" class="meta-text" textWrap="true" />
             </StackLayout>

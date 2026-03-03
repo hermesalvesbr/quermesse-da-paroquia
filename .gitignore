@@ -75,3 +75,4 @@ DerivedData/
 .env
 .env.local
 .env.*.local
+*lock*

@@ -1,13 +1,18 @@
 <template>
-    <GridLayout rows="auto, *, auto" class="screen">
-        <!-- Row 0: Printer warning banner -->
-        <StackLayout row="0" v-if="!printerConnected" class="printer-warning-banner">
+    <GridLayout rows="auto, auto, *, auto" class="screen">
+        <!-- Row 0: Directus connection warning -->
+        <StackLayout row="0" v-if="!hasProducts" class="printer-warning-banner" style="background-color: rgba(255, 152, 0, 0.9);">
+            <Label text="⚠️ SEM PRODUTOS — Verifique: 1) Internet ativa 2) Directus online 3) Cache local" class="printer-warning-text" textWrap="true" />
+        </StackLayout>
+
+        <!-- Row 1: Printer warning banner -->
+        <StackLayout row="1" v-if="!printerConnected" class="printer-warning-banner">
             <Label text="⚠️ IMPRESSORA DESCONECTADA — conecte para finalizar vendas" class="printer-warning-text" textWrap="true" />
         </StackLayout>
 
-        <!-- Row 1: TabView with Comidas / Bebidas -->
+        <!-- Row 2: TabView with Comidas / Bebidas -->
         <TabView
-            row="1"
+            row="2"
             tabBackgroundColor="rgba(255,248,222,0.95)"
             tabTextColor="#7A4A28"
             selectedTabTextColor="#5A3418"
@@ -17,12 +22,17 @@
             <TabViewItem title="🍽️ Comidas">
                 <ScrollView>
                     <StackLayout class="p-3">
+                        <StackLayout v-if="comidaItems.length === 0" class="soft-panel">
+                            <Label text="📦 Nenhum produto disponível" class="item-title" textAlign="center" />
+                            <Label text="Verifique sua conexão com a internet e estado do servidor Directus." class="meta-text" textAlign="center" textWrap="true" />
+                            <Label text="Se o Directus estiver OK, aguarde sincronização ou reinicie o app." class="meta-text" textAlign="center" textWrap="true" />
+                        </StackLayout>
                         <GridLayout
                             v-for="item in comidaItems"
                             :key="item.id"
                             columns="auto, *, auto"
                             class="menu-item-card"
-                            columnGap="10"
+                            columnGap="12"
                         >
                             <Label col="0" :text="item.emoji" class="emoji" />
                             <StackLayout col="1">
@@ -56,12 +66,17 @@
             <TabViewItem title="🥤 Bebidas">
                 <ScrollView>
                     <StackLayout class="p-3">
+                        <StackLayout v-if="bebidaItems.length === 0" class="soft-panel">
+                            <Label text="📦 Nenhum produto disponível" class="item-title" textAlign="center" />
+                            <Label text="Verifique sua conexão com a internet e estado do servidor Directus." class="meta-text" textAlign="center" textWrap="true" />
+                            <Label text="Se o Directus estiver OK, aguarde sincronização ou reinicie o app." class="meta-text" textAlign="center" textWrap="true" />
+                        </StackLayout>
                         <GridLayout
                             v-for="item in bebidaItems"
                             :key="item.id"
                             columns="auto, *, auto"
                             class="menu-item-card"
-                            columnGap="10"
+                            columnGap="12"
                         >
                             <Label col="0" :text="item.emoji" class="emoji" />
                             <StackLayout col="1">
@@ -93,8 +108,8 @@
             </TabViewItem>
         </TabView>
 
-        <!-- Row 2: Fixed bottom bar — cart summary + payment + finalize -->
-        <StackLayout row="2" class="bottom-bar">
+        <!-- Row 3: Fixed bottom bar — cart summary + payment + finalize -->
+        <StackLayout row="3" class="bottom-bar" rowGap="12">
             <!-- Cart summary -->
             <GridLayout columns="auto, *, auto">
                 <Label col="0" :text="`${totalItems} ${totalItems === 1 ? 'item' : 'itens'}`" class="bottom-count" />
@@ -124,7 +139,7 @@
             </GridLayout>
 
             <!-- Action buttons -->
-            <GridLayout columns="auto, *" columnGap="10" class="m-t-2">
+            <GridLayout columns="auto, *" columnGap="12" class="m-t-4">
                 <Button col="0" text="LIMPAR" class="clear-btn" @tap="onClear" />
                 <Button
                     col="1"
@@ -143,7 +158,7 @@
 import { alert, confirm } from '@nativescript/core'
 import { computed, ref } from 'vue'
 import { getBluetoothService } from '../services/BluetoothService'
-import { pdvStore, type PaymentMethod } from '../services/PdvStore'
+import { pdvStore, type PaymentMethod } from '../services/PdvStoreDirectus'
 import { buildSaleTicket } from '../utils/EscPosBuilder'
 
 const props = defineProps<{
@@ -154,11 +169,13 @@ const props = defineProps<{
 const selectedPayment = ref<PaymentMethod>('cash')
 const isProcessing = ref(false)
 
-const comidaItems = computed(() => pdvStore.getCartItemsByCategory('comida'))
-const bebidaItems = computed(() => pdvStore.getCartItemsByCategory('bebida'))
+// Accesso direto ao reactive cartItems para garantir reatividade
+const comidaItems = computed(() => pdvStore.cartItems.filter(item => item.category === 'comida'))
+const bebidaItems = computed(() => pdvStore.cartItems.filter(item => item.category === 'bebida'))
 const total = computed(() => pdvStore.getTotal())
 const totalItems = computed(() => pdvStore.getTotalItems())
 const canFinalize = computed(() => totalItems.value > 0 && !isProcessing.value)
+const hasProducts = computed(() => comidaItems.value.length > 0 || bebidaItems.value.length > 0)
 
 function formatMoney(value: number): string {
     return `R$ ${value.toFixed(2).replace('.', ',')}`
@@ -194,7 +211,7 @@ async function onFinalize(): Promise<void> {
 
     try {
         // Step 2: Finalize sale (deduct stock, register)
-        const sale = pdvStore.finalizeSale(props.operatorName, selectedPayment.value)
+        const sale = await pdvStore.finalizeSale(props.operatorName, selectedPayment.value)
 
         // Step 3: Attempt print
         try {

@@ -133,7 +133,7 @@ ActionBar.app-actionbar {
     border-radius: 14;
     border-width: 1;
     border-color: rgba(122, 74, 40, 0.3);
-    padding: 12;
+    padding: 14;
     margin-top: 8;
 }
 
@@ -356,7 +356,7 @@ ActionBar.app-actionbar {
     border-color: var(--glass-border);
     border-radius: 16;
     padding: 10 12;
-    margin-bottom: 8;
+    margin-bottom: 12;
 }
 
 .bottom-bar {
@@ -463,7 +463,7 @@ ActionBar.app-actionbar {
     border-color: var(--glass-border);
     border-radius: 14;
     padding: 10 12;
-    margin-bottom: 8;
+    margin-bottom: 12;
 }
 
 .sale-total-ok {
@@ -493,7 +493,7 @@ ActionBar.app-actionbar {
 }
 
 .reprint-btn {
-    margin-top: 6;
+    margin-top: 10;
     border-radius: 10;
     font-size: 12;
     font-weight: 700;
@@ -503,7 +503,7 @@ ActionBar.app-actionbar {
 }
 
 .reprint-btn-urgent {
-    margin-top: 6;
+    margin-top: 10;
     border-radius: 10;
     font-size: 13;
     font-weight: 800;
