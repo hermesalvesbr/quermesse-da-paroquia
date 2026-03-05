@@ -15,7 +15,7 @@
 
         <!-- SplashScreen API (Android 12+) -->
         <item name="android:windowSplashScreenBackground">#F5C542</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/logo</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_app_logo</item>
         <item name="android:windowSplashScreenIconBackgroundColor">#20FFFFFF</item>
     </style>
 

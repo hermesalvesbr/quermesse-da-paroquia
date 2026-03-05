@@ -56,6 +56,9 @@ interface PdvSaleItem {
   total_price: number
 }
 
+// ID do ponto de produção "Lojinha" — excluído do PDV (foco é comida)
+const LOJINHA_POINT_ID = '771786ea-9431-411b-8274-28b224bfb5ad'
+
 // Schema completo do Directus
 // NOTA: Declarado como `any` para compatibilidade com @directus/sdk v21
 type DirectusSchema = any
@@ -172,7 +175,10 @@ class DirectusService {
     try {
       const products = await this.client.request(
         readItems('pdv_products', {
-          filter: { active: { _eq: true } },
+          filter: {
+            active: { _eq: true },
+            production_point_id: { _neq: LOJINHA_POINT_ID },
+          },
           sort: ['sort_order'],
         }),
       )

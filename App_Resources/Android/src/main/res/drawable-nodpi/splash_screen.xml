@@ -32,7 +32,7 @@
         <bitmap
             android:gravity="center"
             android:filter="true"
-            android:src="@drawable/logo" />
+            android:src="@drawable/ic_app_logo" />
     </item>
 
 </layer-list>
