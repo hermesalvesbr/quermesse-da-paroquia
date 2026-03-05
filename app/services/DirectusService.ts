@@ -303,6 +303,7 @@ class DirectusService {
       await this.client.request(
         updateItem('pdv_sales', saleId, {
           printed: true,
+          status: 'published',
         }),
       )
       this.isOnline = true
