@@ -521,6 +521,7 @@ async function finalizeSale(operatorName: string, paymentMethod: PaymentMethod =
         sale_status: 'completed',
         printed: false,
         created_at: sale.createdAt,
+        status: 'published',
       },
       saleItems,
     )
@@ -559,6 +560,7 @@ async function finalizeSale(operatorName: string, paymentMethod: PaymentMethod =
           sale_status: 'completed',
           printed: false,
           created_at: sale.createdAt,
+          status: 'published',
         },
         items: lines.map(line => ({
           product_id: line.id,

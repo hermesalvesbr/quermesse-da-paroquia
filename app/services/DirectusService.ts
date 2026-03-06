@@ -38,6 +38,7 @@ interface PdvProduct {
 
 interface PdvSale {
   id?: string
+  status?: 'published' | 'draft' | 'archived'
   sale_number?: number
   operator_id: string
   total_amount: number
@@ -49,15 +50,22 @@ interface PdvSale {
 
 interface PdvSaleItem {
   id?: string
+  status?: 'published' | 'draft' | 'archived'
   sale_id: string
   product_id: string
   quantity: number
   unit_price: number
   total_price: number
+  returned_qty?: number
 }
 
-// ID do ponto de produção "Lojinha" — excluído do PDV (foco é comida)
-const LOJINHA_POINT_ID = '771786ea-9431-411b-8274-28b224bfb5ad'
+// IDs das categorias de QUERMESSE (comida/bebida) — ÚNICAS exibidas no PDV
+const QUERMESSE_CATEGORY_IDS = [
+  '289fbaa9-723e-4b9e-bc6c-3ff0f1d43e8a', // Salgados
+  '0b731f9a-1d09-468e-a286-26ad7da023fd', // Bebidas
+  '588b5a9f-baa5-40d3-a4e7-5f50517afa70', // Doces
+  '80ff46c5-546b-4b49-b735-ca10f9111fb7', // Caldos
+]
 
 // Schema completo do Directus
 // NOTA: Declarado como `any` para compatibilidade com @directus/sdk v21
@@ -177,7 +185,7 @@ class DirectusService {
         readItems('pdv_products', {
           filter: {
             active: { _eq: true },
-            production_point_id: { _neq: LOJINHA_POINT_ID },
+            category_id: { _in: QUERMESSE_CATEGORY_IDS },
           },
           sort: ['sort_order'],
         }),
@@ -225,6 +233,7 @@ class DirectusService {
           createItem('pdv_sale_items', {
             ...item,
             sale_id: saleId,
+            status: 'published',
           }),
         )
       }
@@ -284,6 +293,7 @@ class DirectusService {
       await this.client.request(
         updateItem('pdv_sales', saleId, {
           sale_status: 'cancelled',
+          status: 'published',
         }),
       )
 
@@ -336,6 +346,7 @@ class DirectusService {
           createItem('pdv_sale_items', {
             ...item,
             sale_id: saleId,
+            status: 'published',
           }),
         )
       }

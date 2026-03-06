@@ -1,7 +1,7 @@
 {
   "name": "pdv-app",
   "main": "app/app.ts",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "private": true,
   "scripts": {
     "android": "ns run android --no-hmr",
