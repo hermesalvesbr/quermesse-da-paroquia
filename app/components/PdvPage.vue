@@ -10,7 +10,7 @@
             <Label text="⚠️ IMPRESSORA DESCONECTADA — conecte para finalizar vendas" class="printer-warning-text" textWrap="true" />
         </StackLayout>
 
-        <!-- Row 2: TabView with Comidas / Bebidas -->
+        <!-- Row 2: TabView with dynamic category tabs -->
         <TabView
             row="2"
             tabBackgroundColor="rgba(255,248,222,0.95)"
@@ -19,60 +19,16 @@
             androidSelectedTabHighlightColor="#F5C542"
             :tabTextFontSize="14"
         >
-            <TabViewItem title="🍽️ Comidas">
+            <TabViewItem v-for="tab in categoryTabs" :key="tab.key" :title="`${tab.emoji} ${tab.label}`">
                 <ScrollView>
                     <StackLayout class="p-3">
-                        <StackLayout v-if="comidaItems.length === 0" class="soft-panel">
+                        <StackLayout v-if="getFilteredItems(tab.key).length === 0" class="soft-panel">
                             <Label text="📦 Nenhum produto disponível" class="item-title" textAlign="center" />
                             <Label text="Verifique sua conexão com a internet e estado do servidor Directus." class="meta-text" textAlign="center" textWrap="true" />
                             <Label text="Se o Directus estiver OK, aguarde sincronização ou reinicie o app." class="meta-text" textAlign="center" textWrap="true" />
                         </StackLayout>
                         <GridLayout
-                            v-for="item in comidaItems"
-                            :key="item.id"
-                            columns="auto, *, auto"
-                            class="menu-item-card"
-                            columnGap="12"
-                        >
-                            <Label col="0" :text="item.emoji" class="emoji" />
-                            <StackLayout col="1">
-                                <Label :text="item.name" class="item-title" />
-                                <Label :text="`${formatMoney(item.price)} · Est: ${pdvStore.getStock(item.id)}`" class="meta-text" />
-                            </StackLayout>
-                            <StackLayout col="2" class="qty-box">
-                                <GridLayout columns="auto, auto, auto" class="qty-controls" columnGap="6">
-                                    <Button col="0" text="−" class="qty-btn" @tap="pdvStore.decrementItem(item.id)" />
-                                    <Label col="1" :text="String(item.quantity)" class="qty-label" />
-                                    <Button
-                                        col="2"
-                                        text="+"
-                                        class="qty-btn-add"
-                                        @tap="pdvStore.incrementItem(item.id)"
-                                        :isEnabled="item.quantity < pdvStore.getStock(item.id)"
-                                        :class="item.quantity >= pdvStore.getStock(item.id) ? 'opacity-40' : ''"
-                                    />
-                                </GridLayout>
-                                <Label
-                                    v-if="item.quantity > 0"
-                                    :text="`= ${formatMoney(item.price * item.quantity)}`"
-                                    class="subtotal"
-                                />
-                            </StackLayout>
-                        </GridLayout>
-                    </StackLayout>
-                </ScrollView>
-            </TabViewItem>
-
-            <TabViewItem title="🥤 Bebidas">
-                <ScrollView>
-                    <StackLayout class="p-3">
-                        <StackLayout v-if="bebidaItems.length === 0" class="soft-panel">
-                            <Label text="📦 Nenhum produto disponível" class="item-title" textAlign="center" />
-                            <Label text="Verifique sua conexão com a internet e estado do servidor Directus." class="meta-text" textAlign="center" textWrap="true" />
-                            <Label text="Se o Directus estiver OK, aguarde sincronização ou reinicie o app." class="meta-text" textAlign="center" textWrap="true" />
-                        </StackLayout>
-                        <GridLayout
-                            v-for="item in bebidaItems"
+                            v-for="item in getFilteredItems(tab.key)"
                             :key="item.id"
                             columns="auto, *, auto"
                             class="menu-item-card"
@@ -169,13 +125,15 @@ const props = defineProps<{
 const selectedPayment = ref<PaymentMethod>('cash')
 const isProcessing = ref(false)
 
-// Accesso direto ao reactive cartItems para garantir reatividade
-const comidaItems = computed(() => pdvStore.cartItems.filter(item => item.category === 'comida'))
-const bebidaItems = computed(() => pdvStore.cartItems.filter(item => item.category === 'bebida'))
+// Tabs dinâmicas baseadas nas categorias do Directus
+const categoryTabs = computed(() => pdvStore.getCategoryTabs())
+function getFilteredItems(categoryKey: string) {
+  return pdvStore.getItemsByCategory(categoryKey)
+}
 const total = computed(() => pdvStore.getTotal())
 const totalItems = computed(() => pdvStore.getTotalItems())
 const canFinalize = computed(() => totalItems.value > 0 && !isProcessing.value)
-const hasProducts = computed(() => comidaItems.value.length > 0 || bebidaItems.value.length > 0)
+const hasProducts = computed(() => pdvStore.cartItems.length > 0)
 
 function formatMoney(value: number): string {
     return `R$ ${value.toFixed(2).replace('.', ',')}`

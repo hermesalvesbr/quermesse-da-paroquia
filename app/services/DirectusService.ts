@@ -59,12 +59,9 @@ interface PdvSaleItem {
   returned_qty?: number
 }
 
-// IDs das categorias de QUERMESSE (comida/bebida) — ÚNICAS exibidas no PDV
-const QUERMESSE_CATEGORY_IDS = [
-  '289fbaa9-723e-4b9e-bc6c-3ff0f1d43e8a', // Salgados
-  '0b731f9a-1d09-468e-a286-26ad7da023fd', // Bebidas
-  '588b5a9f-baa5-40d3-a4e7-5f50517afa70', // Doces
-  '80ff46c5-546b-4b49-b735-ca10f9111fb7', // Caldos
+// ID da categoria LOJINHA — excluída do PDV de quermesse
+const EXCLUDED_CATEGORY_IDS = [
+  '771786ea-9431-411b-8274-28b224bfb5ad', // Lojinha
 ]
 
 // Schema completo do Directus
@@ -164,7 +161,10 @@ class DirectusService {
     try {
       const categories = await this.client.request(
         readItems('pdv_categories', {
-          filter: { active: { _eq: true } },
+          filter: {
+            active: { _eq: true },
+            id: { _nin: EXCLUDED_CATEGORY_IDS },
+          },
           sort: ['sort_order'],
         }),
       )
@@ -185,7 +185,7 @@ class DirectusService {
         readItems('pdv_products', {
           filter: {
             active: { _eq: true },
-            category_id: { _in: QUERMESSE_CATEGORY_IDS },
+            category_id: { _nin: EXCLUDED_CATEGORY_IDS },
           },
           sort: ['sort_order'],
         }),

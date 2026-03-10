@@ -3,7 +3,7 @@ import { reactive } from 'vue'
 import { directusService, type PdvProduct, type PdvOperator, type PdvCategory } from './DirectusService'
 
 // Mantém as interfaces originais do PdvStore para compatibilidade
-export type ItemCategory = 'comida' | 'bebida'
+export type ItemCategory = string
 
 export interface MenuItem {
   id: string
@@ -105,6 +105,8 @@ const CATEGORY_MAP: Record<string, { emoji: string, category: ItemCategory }> = 
   'Bebidas': { emoji: '🥤', category: 'bebida' },
   'Doces': { emoji: '🍬', category: 'comida' },
   'Caldos': { emoji: '🍲', category: 'comida' },
+  'Infantil': { emoji: '🎠', category: 'infantil' },
+  'Avulso': { emoji: '🏷️', category: 'avulso' },
 }
 
 const PRODUCT_EMOJI: Record<string, string> = {
@@ -124,6 +126,9 @@ const PRODUCT_EMOJI: Record<string, string> = {
   'Brigadeiro': '🍫',
   'Caldo de Feijão': '🍲',
   'Caldo de Mocotó': '🍖',
+  'Brinquedo Pula': '🎠',
+  'AVULSO R$ 1,00': '🏷️',
+  'AVULSO R$ 2,00': '🏷️',
 }
 
 // Estado reativo
@@ -144,7 +149,7 @@ interface SyncQueueItem {
 const syncQueue = reactive<SyncQueueItem[]>([])
 
 function getCategoryInfo(categoryName: string): { emoji: string, category: ItemCategory } {
-  return CATEGORY_MAP[categoryName] || { emoji: '📦', category: 'comida' }
+  return CATEGORY_MAP[categoryName] || { emoji: '📦', category: categoryName.toLowerCase() }
 }
 
 function getProductEmoji(productName: string): string {
@@ -280,12 +285,12 @@ function updateCartFromInventory(): void {
   }
 
   // Log de diagnóstico
-  const comidas = cartItems.filter(i => i.category === 'comida')
-  const bebidas = cartItems.filter(i => i.category === 'bebida')
-  console.log(`PdvStoreDirectus: Cart atualizado - ${comidas.length} comidas, ${bebidas.length} bebidas (total: ${cartItems.length})`)
-  if (bebidas.length > 0) {
-    console.log(`PdvStoreDirectus: Bebidas encontradas:`, bebidas.map(b => b.name).join(', '))
+  const byCategory = new Map<string, number>()
+  for (const item of cartItems) {
+    byCategory.set(item.category, (byCategory.get(item.category) || 0) + 1)
   }
+  const catSummary = [...byCategory.entries()].map(([cat, count]) => `${count} ${cat}`).join(', ')
+  console.log(`PdvStoreDirectus: Cart atualizado - ${catSummary} (total: ${cartItems.length})`)
 }
 
 function loadSalesFromStorage(): void {
@@ -652,6 +657,27 @@ function markAsPrinted(saleId: string): void {
 
 function getCartItemsByCategory(category: ItemCategory): CartItem[] {
   return cartItems.filter(item => item.category === category)
+}
+
+interface CategoryTab {
+  key: string
+  label: string
+  emoji: string
+}
+
+function getCategoryTabs(): CategoryTab[] {
+  return categories.map(cat => {
+    const info = getCategoryInfo(cat.name)
+    return {
+      key: info.category,
+      label: cat.name,
+      emoji: info.emoji,
+    }
+  })
+}
+
+function getItemsByCategory(categoryKey: string): CartItem[] {
+  return cartItems.filter(item => item.category === categoryKey)
 }
 
 function getRecentSales(limit = 10): SaleRecord[] {
@@ -1131,6 +1157,8 @@ export const pdvStore = {
   returnItemsToStock,
   markAsPrinted,
   getCartItemsByCategory,
+  getCategoryTabs,
+  getItemsByCategory,
   getRecentSales,
   getPendingPrintSales,
   getPaymentLabel,

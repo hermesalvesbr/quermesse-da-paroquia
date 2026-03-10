@@ -1,7 +1,7 @@
 import { ApplicationSettings } from '@nativescript/core'
 import { reactive } from 'vue'
 
-export type ItemCategory = 'comida' | 'bebida'
+export type ItemCategory = string
 
 export interface MenuItem {
     id: string
