@@ -17,11 +17,14 @@ interface PdvCategory {
   status: string
 }
 
-interface _PdvProductionPoint {
+interface PdvProductionPoint {
   id: string
   name: string
+  emoji: string
+  sort: number | null
   active: boolean
   status: string
+  role?: string
 }
 
 interface PdvProduct {
@@ -34,6 +37,7 @@ interface PdvProduct {
   status: string
   category_id: string
   production_point_id: string
+  emoji: string
 }
 
 interface PdvSale {
@@ -58,9 +62,6 @@ interface PdvSaleItem {
   total_price: number
   returned_qty?: number
 }
-
-// ID do ponto de produção LOJINHA — categorias e produtos desse point são excluídos do PDV
-const LOJINHA_PRODUCTION_POINT_ID = '771786ea-9431-411b-8274-28b224bfb5ad'
 
 // Schema completo do Directus
 // NOTA: Declarado como `any` para compatibilidade com @directus/sdk v21
@@ -178,22 +179,31 @@ class DirectusService {
     }
   }
 
+  // ----- PRODUCTION POINTS -----
+  async getProductionPoints(): Promise<PdvProductionPoint[]> {
+    try {
+      const points = await this.ensureClient().request(
+        readItems('pdv_production_points', {
+          filter: { active: { _eq: true } },
+          sort: ['sort'],
+        }),
+      )
+      this.isOnline = true
+      return points as PdvProductionPoint[]
+    }
+    catch (error) {
+      console.error('DirectusService: Erro ao buscar pontos de produção', error)
+      this.isOnline = false
+      return []
+    }
+  }
+
   // ----- CATEGORIES -----
   async getCategories(): Promise<PdvCategory[]> {
     try {
       const categories = await this.ensureClient().request(
         readItems('pdv_categories', {
-          filter: {
-            _and: [
-              { active: { _eq: true } },
-              {
-                _or: [
-                  { production_point_id: { _null: true } },
-                  { production_point_id: { _neq: LOJINHA_PRODUCTION_POINT_ID } },
-                ],
-              },
-            ],
-          },
+          filter: { active: { _eq: true } },
           sort: ['sort_order'],
         }),
       )
@@ -215,7 +225,7 @@ class DirectusService {
           filter: {
             _and: [
               { active: { _eq: true } },
-              { production_point_id: { _neq: LOJINHA_PRODUCTION_POINT_ID } },
+              { production_point_id: { role: { _neq: 'lojinha' } } },
             ],
           },
           sort: ['sort_order'],
@@ -484,4 +494,4 @@ class DirectusService {
 
 // Singleton
 export const directusService = new DirectusService()
-export type { PdvCategory, PdvOperator, PdvProduct, PdvSale, PdvSaleItem }
+export type { PdvCategory, PdvOperator, PdvProduct, PdvProductionPoint, PdvSale, PdvSaleItem }

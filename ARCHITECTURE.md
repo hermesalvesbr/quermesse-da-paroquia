@@ -4,6 +4,13 @@
 
 O aplicativo e um PDV Android nativo construido com NativeScript 9, Vue 3 e TypeScript. A UI vive em componentes Vue, enquanto a logica de negocio e integracoes ficam em servicos TypeScript. O backend principal e o Directus, mas o app precisa continuar operando com cache local e fila de sincronizacao quando estiver offline.
 
+## Build e bundling
+
+- Bundler oficial: Vite (`@nativescript/vite`) configurado em [nativescript.config.ts](nativescript.config.ts) e [vite.config.ts](vite.config.ts).
+- Build Android usa `ns build android` com saida intermediaria em `.ns-vite-build`.
+- Hook [hooks/after-prepare/copy-vite-output.js](hooks/after-prepare/copy-vite-output.js) copia os artefatos do Vite para `platforms/android/app/src/main/assets/app` antes do Gradle/SBG.
+- O projeto usa patch automatizado em [scripts/postinstall-patches.mjs](scripts/postinstall-patches.mjs) para compatibilidade Windows em `@nativescript/vite`.
+
 ## Camadas
 
 ### UI

@@ -1,5 +1,36 @@
 # Lições Aprendidas
 
+## 2026-03-11 — ANR no emulador: conflito HMR entre NS CLI e Vite
+
+**Contexto**: Após migração de webpack para Vite (`@nativescript/vite`), o app fechava logo após o splash screen com ANR (`failed to complete startup`). O log mostrava `@nativescript/vite HMR client loaded` antes do travamento.
+
+**Causa raiz**: O script `android` usava `ns debug android` (sem `--no-hmr`). O NS CLI ativava uma segunda camada de HMR nativa que entrava em conflito com o sistema de HMR HTTP do Vite, bloqueando o thread principal do Android sem completar o startup.
+
+**Fix**: Alterar script `"android"` para `"ns debug android --no-hmr"`. Com Vite como bundler, o HMR é gerido pelo servidor Vite; o CLI não deve sobrepor isso com HMR nativo.
+
+**Regra**: Com `@nativescript/vite`, **sempre** usar `--no-hmr` no CLI do NativeScript. O fluxo correto é:
+1. `vite serve -- --env.android --env.hmr` (HMR via HTTP/WS)
+2. `ns debug android --no-hmr` (instala APK sem HMR nativo)
+
+---
+
+## 2026-03-11 — App sem produtos: variáveis de build obrigatórias
+
+**Contexto**: App abria mas mostrava "SEM PRODUTOS" e "CACHE VAZIO" mesmo com Directus online. Log mostrava `DirectusService: DIRECTUS_URL/DIRECTUS_TOKEN ausentes. Backend desabilitado`.
+
+**Causa raiz**: O build foi executado sem `DIRECTUS_URL` e `DIRECTUS_TOKEN` no ambiente. O Vite injeta essas variáveis em tempo de build via `define` — se não estiverem presentes, o bundle resultante tem strings vazias e o `DirectusService` desabilita o backend silenciosamente.
+
+**Fix**: Sempre definir as variáveis antes de qualquer comando de build ou dev:
+```powershell
+$env:DIRECTUS_URL="https://seu-directus"
+$env:DIRECTUS_TOKEN="seu-token"
+bun run dev:android   # ou ns build android
+```
+
+**Regra**: Nunca assumir que o build está configurado. Verificar o log de startup: se aparecer `DIRECTUS_URL/DIRECTUS_TOKEN ausentes`, o APK foi gerado sem credenciais e precisa ser reconstruído com as variáveis presentes.
+
+---
+
 ## 2026-03-03 — Emojis no código: UTF-8 safe mas cuidado com template literals
 
 **Contexto**: Ao adicionar logs com emojis para melhorar diagnóstico de conectividade (✅ online, ❌ erro, 📦 cache, ⚠️ warning), uma edição corrompeu o código: `const mapped = products.map(p =📦 Cache LOCAL - ${mapped.length}...` causou 132+ erros TypeScript.

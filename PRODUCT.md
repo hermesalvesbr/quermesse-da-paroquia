@@ -33,7 +33,7 @@ O PDV Quermesse e um aplicativo Android nativo para operacao de caixa em festas,
 
 - Catalogo sincronizado com Directus, com fallback offline.
 - Identificacao e persistencia de operador.
-- Carrinho com validacao de estoque.
+- Carrinho com calculo de subtotal/total e organizacao por ponto de producao.
 - Vendas com pagamento em dinheiro, PIX e cartao.
 - Historico de vendas com cancelamento, devolucao e troca.
 - Relatorios de vendas e itens.

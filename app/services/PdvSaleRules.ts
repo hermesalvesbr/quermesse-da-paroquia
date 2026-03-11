@@ -21,19 +21,12 @@ export interface PreparedSaleLine {
 
 export function assertSaleCanBeFinalized(
   cartItems: SaleCartItemInput[],
-  inventoryItems: SaleInventoryItemInput[],
+  _inventoryItems: SaleInventoryItemInput[],
 ): void {
   const activeItems = cartItems.filter(item => item.quantity > 0)
 
   if (activeItems.length === 0) {
     throw new Error('Adicione itens para finalizar a venda.')
-  }
-
-  for (const cartItem of activeItems) {
-    const stockItem = inventoryItems.find(inv => inv.id === cartItem.id)
-    if (!stockItem || stockItem.stock < cartItem.quantity) {
-      throw new Error(`Estoque insuficiente para ${cartItem.name}.`)
-    }
   }
 }
 

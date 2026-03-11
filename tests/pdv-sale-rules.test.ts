@@ -7,11 +7,11 @@ describe('PdvSaleRules', () => {
     expect(() => assertSaleCanBeFinalized([], [])).toThrow('Adicione itens para finalizar a venda.')
   })
 
-  it('rejeita venda com estoque insuficiente', () => {
+  it('permite venda mesmo com estoque insuficiente', () => {
     expect(() => assertSaleCanBeFinalized(
       [{ id: 'coxinha', name: 'Coxinha', price: 8, quantity: 2 }],
       [{ id: 'coxinha', stock: 1 }],
-    )).toThrow('Estoque insuficiente para Coxinha.')
+    )).not.toThrow()
   })
 
   it('monta linhas e calcula total', () => {

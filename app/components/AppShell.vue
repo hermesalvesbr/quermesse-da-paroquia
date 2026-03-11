@@ -257,6 +257,14 @@ function onAppResume(): void {
         console.warn('Falha ao atualizar status de conectividade no resume:', error)
     })
     tryReloadCatalogIfNeeded()
+
+    // Verifica se a sessão do operador expirou (8h)
+    const currentOp = sessionService.getCurrentOperator()
+    if (!currentOp && operatorName.value) {
+        operatorName.value = ''
+        operatorLoginAt.value = ''
+        showOperatorModal.value = true
+    }
 }
 
 function tryReloadCatalogIfNeeded(): void {

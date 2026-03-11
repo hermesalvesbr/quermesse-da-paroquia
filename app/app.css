@@ -159,7 +159,7 @@ ActionBar.app-actionbar {
 }
 
 .item-title {
-    font-size: 15;
+    font-size: 16;
     font-weight: 700;
     color: var(--text-main);
 }
@@ -201,27 +201,37 @@ ActionBar.app-actionbar {
 
 .qty-box {
     vertical-align: center;
+    horizontal-align: right;
 }
 
 .qty-controls {
     horizontal-align: right;
+    vertical-align: center;
+    height: 44;
 }
 
 .qty-btn {
-    min-width: 36;
+    width: 44;
+    height: 44;
     padding: 0;
-    border-radius: 10;
+    margin: 0;
+    border-radius: 12;
     background-color: rgba(255, 224, 138, 0.6);
     color: var(--brand-secondary);
-    font-size: 18;
+    font-size: 22;
     font-weight: 700;
+    vertical-align: center;
+    horizontal-align: center;
+    text-align: center;
 }
 
 .qty-label {
-    min-width: 24;
+    width: 30;
     text-align: center;
-    font-size: 16;
+    font-size: 18;
     font-weight: 700;
+    vertical-align: center;
+    horizontal-align: center;
 }
 
 .subtotal {
@@ -314,7 +324,7 @@ ActionBar.app-actionbar {
 }
 
 .meta-text {
-    font-size: 11;
+    font-size: 12;
     color: rgba(122, 74, 40, 0.9);
 }
 
@@ -363,13 +373,34 @@ ActionBar.app-actionbar {
     vertical-align: center;
 }
 
+.search-field {
+    font-size: 18;
+    padding: 14 16;
+    margin: 0;
+    height: 56;
+    border-width: 3;
+    border-color: rgba(122, 74, 40, 0.55);
+    border-radius: 14;
+    background-color: #ffffff;
+    color: var(--text-main);
+    placeholder-color: rgba(122, 74, 40, 0.55);
+}
+
+.search-wrap {
+    padding: 12 14 10 14;
+    background-color: rgba(255, 240, 190, 0.95);
+    border-bottom-width: 2;
+    border-bottom-color: rgba(245, 197, 66, 0.6);
+}
+
 .menu-item-card {
     background-color: var(--glass-bg);
     border-width: 1;
     border-color: var(--glass-border);
     border-radius: 16;
-    padding: 10 12;
-    margin-bottom: 12;
+    padding: 12 12;
+    margin-bottom: 10;
+    vertical-align: center;
 }
 
 .bottom-bar {
@@ -459,13 +490,18 @@ ActionBar.app-actionbar {
 /* ── Qty + Button (prominent) ── */
 
 .qty-btn-add {
-    min-width: 40;
+    width: 44;
+    height: 44;
     padding: 0;
-    border-radius: 10;
+    margin: 0;
+    border-radius: 12;
     background-color: var(--brand-primary);
     color: var(--brand-primary-strong);
-    font-size: 20;
+    font-size: 22;
     font-weight: 800;
+    vertical-align: center;
+    horizontal-align: center;
+    text-align: center;
 }
 
 /* ── Sale Cards (VendasPage) ── */

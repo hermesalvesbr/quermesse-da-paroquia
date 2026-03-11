@@ -264,12 +264,12 @@ const DIRECTUS_TOKEN = 'oemH4mkn7q-bAHJ9MX2b3ba3BclI6thS'
 
 ### Build Android
 ```bash
-npm run build:android
+bun run build:android
 ```
 
 ### Lint
 ```bash
-npm run lint
+bun run lint
 ```
 
 ### Logs do App

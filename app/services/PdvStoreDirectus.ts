@@ -1,6 +1,6 @@
 import { ApplicationSettings } from '@nativescript/core'
 import { reactive } from 'vue'
-import { directusService, type PdvProduct, type PdvOperator, type PdvCategory } from './DirectusService'
+import { directusService, type PdvProduct, type PdvOperator, type PdvCategory, type PdvProductionPoint } from './DirectusService'
 import { assertSaleCanBeFinalized, buildPreparedSaleLines, calculateSaleTotal } from './PdvSaleRules'
 
 // Mantém as interfaces originais do PdvStore para compatibilidade
@@ -95,42 +95,11 @@ export interface PeriodReport {
 
 const CACHE_PRODUCTS_KEY = 'pdv.directus.products'
 const CACHE_OPERATORS_KEY = 'pdv.directus.operators'
+const CACHE_PRODUCTION_POINTS_KEY = 'pdv.directus.production_points'
 const SALES_STORAGE_KEY = 'pdv.sales'
 const ORDER_COUNTER_KEY = 'pdv.order.counter'
 const ORDER_COUNTER_DATE_KEY = 'pdv.order.counter.date'
 const SYNC_QUEUE_KEY = 'pdv.sync.queue'
-
-// Mapeamento de categorias Directus → UI (cada categoria tem sua chave única)
-const CATEGORY_MAP: Record<string, { emoji: string, category: ItemCategory }> = {
-  'Salgados': { emoji: '🍗', category: 'salgados' },
-  'Bebidas': { emoji: '🥤', category: 'bebidas' },
-  'Doces': { emoji: '🍬', category: 'doces' },
-  'Caldos': { emoji: '🍲', category: 'caldos' },
-  'Infantil': { emoji: '🎠', category: 'infantil' },
-  'Avulso': { emoji: '🏷️', category: 'avulso' },
-}
-
-const PRODUCT_EMOJI: Record<string, string> = {
-  'Coxinha': '🍗',
-  'Pastel': '🥟',
-  'Espetinho': '🍖',
-  'Cachorro-Quente': '🌭',
-  'Tapioca Recheada': '🫓',
-  'Milho Cozido': '🌽',
-  'Refrigerante Lata': '🥤',
-  'Água Mineral': '💧',
-  'Cerveja': '🍺',
-  'Suco Natural': '🧃',
-  'Bolo Caseiro (fatia)': '🍰',
-  'Pé de Moleque': '🍬',
-  'Cocada': '🥥',
-  'Brigadeiro': '🍫',
-  'Caldo de Feijão': '🍲',
-  'Caldo de Mocotó': '🍖',
-  'Brinquedo Pula': '🎠',
-  'AVULSO R$ 1,00': '🏷️',
-  'AVULSO R$ 2,00': '🏷️',
-}
 
 // Estado reativo
 const inventoryItems = reactive<InventoryItem[]>([])
@@ -138,6 +107,7 @@ const cartItems = reactive<CartItem[]>([])
 const sales = reactive<SaleRecord[]>([])
 const operators = reactive<PdvOperator[]>([])
 const categories = reactive<PdvCategory[]>([])
+const productionPoints = reactive<PdvProductionPoint[]>([])
 let isInitialized = false
 
 // Fila de sincronização offline
@@ -149,31 +119,42 @@ interface SyncQueueItem {
 
 const syncQueue = reactive<SyncQueueItem[]>([])
 
-function getCategoryInfo(categoryName: string): { emoji: string, category: ItemCategory } {
-  return CATEGORY_MAP[categoryName] || { emoji: '📦', category: categoryName.toLowerCase() }
+/**
+ * Retorna o role de um ponto de produção.
+ * Usa o campo `role` quando disponível (cache novo).
+ * Fallback por nome para cache antigo sem campo `role` — impede Lojinha de vazar.
+ */
+function getProductionPointRole(productionPointId: string): string {
+  const pp = productionPoints.find(p => p.id === productionPointId)
+  if (pp?.role) return pp.role
+  // Fallback para cache gerado antes da adição do campo role
+  if (pp?.name.toLowerCase().includes('lojinha')) return 'lojinha'
+  return 'pdv'
 }
 
-function getProductEmoji(productName: string): string {
-  return PRODUCT_EMOJI[productName] || '📦'
+/** Android java.text.Collator for proper pt-BR sorting (handles accents natively). */
+let _collator: java.text.Collator | null = null
+function getCollator(): java.text.Collator {
+  if (!_collator) {
+    _collator = java.text.Collator.getInstance(new java.util.Locale('pt', 'BR'))
+    _collator.setStrength(java.text.Collator.PRIMARY)
+  }
+  return _collator
+}
+
+function compareItemNames(left: Pick<CartItem, 'name'>, right: Pick<CartItem, 'name'>): number {
+  return getCollator().compare(left.name, right.name)
 }
 
 // Conversão Directus → InventoryItem
-function mapProductToInventory(product: PdvProduct, categories: PdvCategory[]): InventoryItem {
-  const category = categories.find(cat => cat.id === product.category_id)
-  const categoryInfo = category ? getCategoryInfo(category.name) : { emoji: '📦', category: 'comida' as const }
-  
-  // Log de diagnóstico para produtos mapeados
-  if (category && category.name === 'Bebidas') {
-    console.log(`PdvStoreDirectus: Produto BEBIDA mapeado: ${product.name} → categoria: ${categoryInfo.category}`)
-  }
-  
+function mapProductToInventory(product: PdvProduct): InventoryItem {
   return {
     id: product.id,
     name: product.name,
     price: Number(product.price),
-    emoji: getProductEmoji(product.name),
+    emoji: product.emoji || '📦',
     stock: product.stock_quantity,
-    category: categoryInfo.category,
+    category: product.production_point_id || '',
   }
 }
 
@@ -197,26 +178,30 @@ async function initialize(): Promise<void> {
     }
 
     // Tenta carregar do Directus
-    const [productsData, operatorsData, categoriesData] = await Promise.all([
+    const [productsData, operatorsData, categoriesData, productionPointsData] = await Promise.all([
       directusService.getProducts(),
       directusService.getOperators(),
       directusService.getCategories(),
+      directusService.getProductionPoints(),
     ])
 
     if (!directusService.getOnlineStatus() || (productsData.length === 0 && operatorsData.length === 0 && categoriesData.length === 0)) {
       throw new Error('Directus indisponivel ou sem dados iniciais. Usando cache local.')
     }
 
-    console.log(`PdvStoreDirectus: ✅ Directus ONLINE - ${productsData.length} produtos carregados`)
+    console.log(`PdvStoreDirectus: ✅ Directus ONLINE - ${productsData.length} produtos, ${productionPointsData.length} pontos de produção`)
 
     // Atualiza categorias
     categories.splice(0, categories.length, ...categoriesData)
+
+    // Atualiza pontos de produção
+    productionPoints.splice(0, productionPoints.length, ...productionPointsData)
 
     // Atualiza operadores
     operators.splice(0, operators.length, ...operatorsData)
 
     // Converte e atualiza produtos
-    const mappedProducts = productsData.map(p => mapProductToInventory(p, categoriesData))
+    const mappedProducts = productsData.map(p => mapProductToInventory(p))
     inventoryItems.splice(0, inventoryItems.length, ...mappedProducts)
 
     // Atualiza carrinho
@@ -226,6 +211,7 @@ async function initialize(): Promise<void> {
     ApplicationSettings.setString(CACHE_PRODUCTS_KEY, JSON.stringify(productsData))
     ApplicationSettings.setString(CACHE_OPERATORS_KEY, JSON.stringify(operatorsData))
     ApplicationSettings.setString('pdv.directus.categories', JSON.stringify(categoriesData))
+    ApplicationSettings.setString(CACHE_PRODUCTION_POINTS_KEY, JSON.stringify(productionPointsData))
 
     // Sincroniza vendas pendentes
     await syncPendingSales()
@@ -251,15 +237,18 @@ function loadFromCache(): void {
   const cachedProducts = ApplicationSettings.getString(CACHE_PRODUCTS_KEY, '')
   const cachedOperators = ApplicationSettings.getString(CACHE_OPERATORS_KEY, '')
   const cachedCategories = ApplicationSettings.getString('pdv.directus.categories', '')
+  const cachedProductionPoints = ApplicationSettings.getString(CACHE_PRODUCTION_POINTS_KEY, '')
 
   if (cachedProducts) {
     try {
       const products: PdvProduct[] = JSON.parse(cachedProducts)
       const cats: PdvCategory[] = cachedCategories ? JSON.parse(cachedCategories) : []
-      const mapped = products.map(p => mapProductToInventory(p, cats))
+      const points: PdvProductionPoint[] = cachedProductionPoints ? JSON.parse(cachedProductionPoints) : []
+      const mapped = products.map(p => mapProductToInventory(p))
       inventoryItems.splice(0, inventoryItems.length, ...mapped)
       categories.splice(0, categories.length, ...cats)
-      console.log(`PdvStoreDirectus: 📦 Cache LOCAL - ${mapped.length} produtos carregados`)
+      productionPoints.splice(0, productionPoints.length, ...points)
+      console.log(`PdvStoreDirectus: 📦 Cache LOCAL - ${mapped.length} produtos, ${points.length} pontos de produção`)
     }
     catch (e) {
       console.error('PdvStoreDirectus: Erro ao parsear cache de produtos', e)
@@ -298,12 +287,14 @@ function updateCartFromInventory(): void {
     })
   }
 
+  cartItems.sort(compareItemNames)
+
   // Log de diagnóstico
   const byCategory = new Map<string, number>()
   for (const item of cartItems) {
     byCategory.set(item.category, (byCategory.get(item.category) || 0) + 1)
   }
-  const catSummary = [...byCategory.entries()].map(([cat, count]) => `${count} ${cat}`).join(', ')
+  const catSummary = Array.from(byCategory.entries(), ([cat, count]) => `${count} ${cat}`).join(', ')
   console.log(`PdvStoreDirectus: Cart atualizado - ${catSummary} (total: ${cartItems.length})`)
 }
 
@@ -426,9 +417,8 @@ function getNextOrderNumber(): number {
 
 function incrementItem(itemId: string): void {
   const item = cartItems.find(entry => entry.id === itemId)
-  const stockItem = inventoryItems.find(inv => inv.id === itemId)
 
-  if (item && stockItem && item.quantity < stockItem.stock) {
+  if (item) {
     item.quantity += 1
   }
 }
@@ -649,25 +639,46 @@ function getCartItemsByCategory(category: ItemCategory): CartItem[] {
   return cartItems.filter(item => item.category === category)
 }
 
-interface CategoryTab {
+interface ProductionPointTab {
   key: string
   label: string
   emoji: string
 }
 
-function getCategoryTabs(): CategoryTab[] {
-  return categories.map(cat => {
-    const info = getCategoryInfo(cat.name)
-    return {
-      key: info.category,
-      label: cat.name,
-      emoji: info.emoji,
-    }
-  })
+function getProductionPointTabs(): ProductionPointTab[] {
+  if (productionPoints.length > 0) {
+    return productionPoints
+      .filter(pp => pp.role !== 'lojinha')
+      .sort((a, b) => (a.sort ?? 999) - (b.sort ?? 999))
+      .map(pp => ({
+        key: pp.id,
+        label: pp.name,
+        emoji: pp.emoji || '📦',
+      }))
+  }
+
+  // Fallback offline sem cache de pontos de produção: deriva tabs das categorias dos itens
+  return Array.from(new Set(cartItems.map(item => item.category).filter(Boolean)))
+    .map(productionPointId => ({
+      key: productionPointId,
+      label: productionPointId,
+      emoji: '📦',
+    }))
 }
 
-function getItemsByCategory(categoryKey: string): CartItem[] {
-  return cartItems.filter(item => item.category === categoryKey)
+function getItemsByProductionPoint(productionPointId: string): CartItem[] {
+  return cartItems
+    .filter(item => item.category === productionPointId)
+    .sort(compareItemNames)
+}
+
+function getAllItemsExceptOutros(): CartItem[] {
+  return cartItems
+    .filter((item) => {
+      const role = getProductionPointRole(item.category)
+      return role !== 'lojinha' && role !== 'outros'
+    })
+    .sort(compareItemNames)
 }
 
 function getRecentSales(limit = 10): SaleRecord[] {
@@ -727,10 +738,6 @@ function exchangeLatestSaleItem(fromItemId: string, toItemId: string, quantity: 
   const fromInventory = inventoryItems.find(inv => inv.id === fromItemId)
   if (!toInventory || !fromInventory) {
     throw new Error('Item inválido para troca.')
-  }
-
-  if (toInventory.stock < quantity) {
-    throw new Error(`Estoque insuficiente para ${toInventory.name}.`)
   }
 
   // Ajusta estoque localmente
@@ -913,7 +920,6 @@ async function exchangeSaleItem(
   const toInventory = inventoryItems.find(inv => inv.id === toItemId)
   const fromInventory = inventoryItems.find(inv => inv.id === fromLineItemId)
   if (!toInventory) throw new Error('Produto destino não encontrado.')
-  if (toInventory.stock < quantity) throw new Error(`Estoque insuficiente para ${toInventory.name}.`)
 
   const priceDifference = (toInventory.price - fromLine.unitPrice) * quantity
 
@@ -1129,6 +1135,7 @@ export const pdvStore = {
   sales,
   operators,
   categories,
+  productionPoints,
   initialize,
   reloadFromDirectus,
   incrementItem,
@@ -1147,8 +1154,9 @@ export const pdvStore = {
   returnItemsToStock,
   markAsPrinted,
   getCartItemsByCategory,
-  getCategoryTabs,
-  getItemsByCategory,
+  getProductionPointTabs,
+  getItemsByProductionPoint,
+  getAllItemsExceptOutros,
   getRecentSales,
   getPendingPrintSales,
   getPaymentLabel,

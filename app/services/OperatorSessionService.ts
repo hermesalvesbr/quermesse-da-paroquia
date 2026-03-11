@@ -10,6 +10,8 @@ const OPERATOR_NAME_KEY = 'pdv.operator.name'
 const OPERATOR_LOGIN_AT_KEY = 'pdv.operator.loginAt'
 const OPERATOR_ID_KEY = 'pdv.operator.id'
 
+const SESSION_DURATION_MS = 8 * 60 * 60 * 1000 // 8 horas
+
 export interface OperatorSession {
     name: string
     loginAt: string
@@ -24,6 +26,16 @@ export class OperatorSessionService {
 
         if (!name) {
             return null
+        }
+
+        // Expiração após 8 horas
+        if (loginAt) {
+            const elapsed = Date.now() - new Date(loginAt).getTime()
+            if (elapsed > SESSION_DURATION_MS) {
+                this.clearOperator()
+                console.log('OperatorSessionService: Sessão expirada após 8 horas. Operador removido.')
+                return null
+            }
         }
 
         return {

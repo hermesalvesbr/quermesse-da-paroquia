@@ -1,71 +1,87 @@
 <template>
-    <GridLayout rows="auto, auto, *, auto" class="screen">
-        <!-- Row 0: Directus connection warning -->
-        <StackLayout row="0" v-if="!hasProducts" class="printer-warning-banner" style="background-color: rgba(255, 152, 0, 0.9);">
-            <Label text="⚠️ SEM PRODUTOS — Verifique: 1) Internet ativa 2) Directus online 3) Cache local" class="printer-warning-text" textWrap="true" />
-        </StackLayout>
-
-        <!-- Row 1: Printer warning banner -->
-        <StackLayout row="1" v-if="!printerConnected" class="printer-warning-banner">
+    <GridLayout rows="auto, *, auto" class="screen">
+        <!-- Row 0: Printer warning banner -->
+        <StackLayout row="0" v-if="!printerConnected" class="printer-warning-banner">
             <Label text="⚠️ IMPRESSORA DESCONECTADA — conecte para finalizar vendas" class="printer-warning-text" textWrap="true" />
         </StackLayout>
 
-        <!-- Row 2: TabView with dynamic category tabs -->
+        <!-- Row 1: Loading indicator while store initializes -->
+        <StackLayout row="1" v-if="!hasProducts" class="p-4" verticalAlignment="center">
+            <ActivityIndicator busy="true" class="m-b-4" />
+            <Label text="Carregando produtos..." class="item-title" textAlign="center" />
+        </StackLayout>
+
+        <!-- Row 1: TabView with production point tabs -->
         <TabView
-            row="2"
+            v-if="hasProducts"
+            row="1"
             tabBackgroundColor="rgba(255,248,222,0.95)"
             tabTextColor="#7A4A28"
             selectedTabTextColor="#5A3418"
             androidSelectedTabHighlightColor="#F5C542"
             :tabTextFontSize="14"
         >
-            <TabViewItem v-for="tab in categoryTabs" :key="tab.key" :title="`${tab.emoji} ${tab.label}`">
-                <ScrollView>
-                    <StackLayout class="p-3">
-                        <StackLayout v-if="getFilteredItems(tab.key).length === 0" class="soft-panel">
-                            <Label text="📦 Nenhum produto disponível" class="item-title" textAlign="center" />
-                            <Label text="Verifique sua conexão com a internet e estado do servidor Directus." class="meta-text" textAlign="center" textWrap="true" />
-                            <Label text="Se o Directus estiver OK, aguarde sincronização ou reinicie o app." class="meta-text" textAlign="center" textWrap="true" />
-                        </StackLayout>
-                        <GridLayout
-                            v-for="item in getFilteredItems(tab.key)"
-                            :key="item.id"
-                            columns="auto, *, auto"
-                            class="menu-item-card"
-                            columnGap="12"
-                        >
-                            <Label col="0" :text="item.emoji" class="emoji" />
-                            <StackLayout col="1">
-                                <Label :text="item.name" class="item-title" />
-                                <Label :text="`${formatMoney(item.price)} · Est: ${pdvStore.getStock(item.id)}`" class="meta-text" />
-                            </StackLayout>
-                            <StackLayout col="2" class="qty-box">
-                                <GridLayout columns="auto, auto, auto" class="qty-controls" columnGap="6">
-                                    <Button col="0" text="−" class="qty-btn" @tap="pdvStore.decrementItem(item.id)" />
-                                    <Label col="1" :text="String(item.quantity)" class="qty-label" />
-                                    <Button
-                                        col="2"
-                                        text="+"
-                                        class="qty-btn-add"
-                                        @tap="pdvStore.incrementItem(item.id)"
-                                        :isEnabled="item.quantity < pdvStore.getStock(item.id)"
-                                        :class="item.quantity >= pdvStore.getStock(item.id) ? 'opacity-40' : ''"
-                                    />
-                                </GridLayout>
+            <TabViewItem v-for="tab in allTabs" :key="tab.key" :title="`${tab.emoji} ${tab.label}`">
+                <StackLayout height="100%">
+                    <StackLayout v-if="tab.key === '__all__'" class="search-wrap">
+                        <TextField
+                            v-model="searchQuery"
+                            hint="Buscar produto..."
+                            class="search-field"
+                            returnKeyType="search"
+                        />
+                    </StackLayout>
+
+                    <ScrollView height="100%">
+                        <StackLayout class="p-3">
+                            <StackLayout v-if="(tab.key === '__all__' ? filteredAllItems : getFilteredItems(tab.key)).length === 0" class="soft-panel">
                                 <Label
-                                    v-if="item.quantity > 0"
-                                    :text="`= ${formatMoney(item.price * item.quantity)}`"
-                                    class="subtotal"
+                                    :text="tab.key === '__all__' ? '📦 Nenhum produto encontrado' : '📦 Nenhum produto disponível'"
+                                    class="item-title"
+                                    textAlign="center"
+                                />
+                                <Label
+                                    v-if="tab.key !== '__all__'"
+                                    text="Verifique sua conexão com a internet e estado do servidor Directus."
+                                    class="meta-text"
+                                    textAlign="center"
+                                    textWrap="true"
                                 />
                             </StackLayout>
-                        </GridLayout>
-                    </StackLayout>
-                </ScrollView>
+
+                            <GridLayout
+                                v-for="item in (tab.key === '__all__' ? filteredAllItems : getFilteredItems(tab.key))"
+                                :key="item.id"
+                                columns="auto, *, auto"
+                                class="menu-item-card"
+                                columnGap="12"
+                            >
+                                <Label col="0" :text="item.emoji" class="emoji" />
+                                <StackLayout col="1">
+                                    <Label :text="item.name" class="item-title" />
+                                    <Label :text="formatMoney(item.price)" class="meta-text" />
+                                </StackLayout>
+                                <StackLayout col="2" class="qty-box">
+                                    <GridLayout columns="44, 30, 44" rows="44" class="qty-controls">
+                                        <Button col="0" row="0" text="−" class="qty-btn" @tap="pdvStore.decrementItem(item.id)" />
+                                        <Label col="1" row="0" :text="String(item.quantity)" class="qty-label" />
+                                        <Button col="2" row="0" text="+" class="qty-btn-add" @tap="pdvStore.incrementItem(item.id)" />
+                                    </GridLayout>
+                                    <Label
+                                        v-if="item.quantity > 0"
+                                        :text="`= ${formatMoney(item.price * item.quantity)}`"
+                                        class="subtotal"
+                                    />
+                                </StackLayout>
+                            </GridLayout>
+                        </StackLayout>
+                    </ScrollView>
+                </StackLayout>
             </TabViewItem>
         </TabView>
 
-        <!-- Row 3: Fixed bottom bar — cart summary + payment + finalize -->
-        <StackLayout row="3" class="bottom-bar" rowGap="12">
+        <!-- Row 2: Fixed bottom bar — cart summary + payment + finalize -->
+        <StackLayout row="2" class="bottom-bar" rowGap="12">
             <!-- Cart summary -->
             <GridLayout columns="auto, *, auto">
                 <Label col="0" :text="`${totalItems} ${totalItems === 1 ? 'item' : 'itens'}`" class="bottom-count" />
@@ -124,12 +140,34 @@ const props = defineProps<{
 
 const selectedPayment = ref<PaymentMethod>('cash')
 const isProcessing = ref(false)
+const searchQuery = ref('')
 
-// Tabs dinâmicas baseadas nas categorias do Directus
-const categoryTabs = computed(() => pdvStore.getCategoryTabs())
-function getFilteredItems(categoryKey: string) {
-  return pdvStore.getItemsByCategory(categoryKey)
+// Tabs dinâmicas baseadas nos pontos de produção do Directus
+const productionPointTabs = computed(() => pdvStore.getProductionPointTabs())
+const allTabs = computed(() => ([
+    { key: '__all__', label: 'Todos', emoji: '🔍' },
+    ...productionPointTabs.value,
+]))
+
+function getFilteredItems(productionPointId: string) {
+    const items = pdvStore.getItemsByProductionPoint(productionPointId)
+    if (items.length > 0) {
+        return items
+    }
+
+    // Fallback defensivo: usa cartItems direto para evitar tela vazia em edge cases de filtro.
+    return pdvStore.cartItems
+        .filter(item => item.category === productionPointId)
+        .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
 }
+
+// Aba "Todos": todos os produtos exceto "Outros", com busca
+const filteredAllItems = computed(() => {
+    const all = pdvStore.getAllItemsExceptOutros()
+    const q = searchQuery.value.trim().toLowerCase()
+    if (!q) return all
+    return all.filter(item => item.name.toLowerCase().includes(q))
+})
 const total = computed(() => pdvStore.getTotal())
 const totalItems = computed(() => pdvStore.getTotalItems())
 const canFinalize = computed(() => totalItems.value > 0 && !isProcessing.value)

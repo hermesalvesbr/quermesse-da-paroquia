@@ -12,7 +12,6 @@ export default antfu(
       'hooks/**',
       'App_Resources/**/build/**',
       'pdv-app/**',
-      '*.config.js',
     ],
   },
   {

@@ -4,6 +4,8 @@ export default {
   id: 'org.nativescript.pdvapp',
   appPath: 'app',
   appResourcesPath: 'App_Resources',
+  bundler: 'vite',
+  bundlerConfigPath: 'vite.config.ts',
   android: {
     v8Flags: '--expose_gc',
     markingMode: 'none'
