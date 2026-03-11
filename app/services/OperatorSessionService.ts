@@ -48,10 +48,21 @@ export class OperatorSessionService {
             throw new Error(OPERATOR_NAME_VALIDATION_MSG)
         }
 
+        const loginAt = new Date().toISOString()
+
+        if (!directusService.getConfiguredStatus()) {
+            ApplicationSettings.setString(OPERATOR_NAME_KEY, normalizedName)
+            ApplicationSettings.setString(OPERATOR_LOGIN_AT_KEY, loginAt)
+            ApplicationSettings.remove(OPERATOR_ID_KEY)
+
+            return {
+                name: normalizedName,
+                loginAt,
+            }
+        }
+
         // Integração com Directus — findOrCreate
         const operator: PdvOperator = await directusService.findOrCreateOperator(normalizedName)
-
-        const loginAt = new Date().toISOString()
 
         ApplicationSettings.setString(OPERATOR_NAME_KEY, operator.name)
         ApplicationSettings.setString(OPERATOR_LOGIN_AT_KEY, loginAt)

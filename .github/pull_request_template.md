@@ -5,7 +5,9 @@
 
 ## Checklist técnico
 
-- [ ] `npm run lint` sem erros
+- [ ] `bun run lint` sem erros
+- [ ] `bun run typecheck` sem erros
+- [ ] `bun run test` sem erros
 - [ ] `ns build android` sem erros
 - [ ] Código novo com tratamento de erro e mensagens claras para operador
 - [ ] Sem segredos, tokens ou chaves no código
@@ -28,7 +30,9 @@
 ## Evidências de teste
 
 - [ ] Print/log de `ns build android`
-- [ ] Print/log de `npm run lint`
+- [ ] Print/log de `bun run lint`
+- [ ] Print/log de `bun run typecheck`
+- [ ] Print/log de `bun run test`
 - [ ] Vídeo curto ou sequência de prints: conectar -> imprimir -> desconectar -> reconectar -> imprimir
 
 ## Riscos e rollback

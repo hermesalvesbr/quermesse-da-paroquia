@@ -1,6 +1,7 @@
 import { ApplicationSettings } from '@nativescript/core'
 import { reactive } from 'vue'
 import { directusService, type PdvProduct, type PdvOperator, type PdvCategory } from './DirectusService'
+import { assertSaleCanBeFinalized, buildPreparedSaleLines, calculateSaleTotal } from './PdvSaleRules'
 
 // Mantém as interfaces originais do PdvStore para compatibilidade
 export type ItemCategory = string
@@ -99,12 +100,12 @@ const ORDER_COUNTER_KEY = 'pdv.order.counter'
 const ORDER_COUNTER_DATE_KEY = 'pdv.order.counter.date'
 const SYNC_QUEUE_KEY = 'pdv.sync.queue'
 
-// Mapeamento de categorias Directus → UI
+// Mapeamento de categorias Directus → UI (cada categoria tem sua chave única)
 const CATEGORY_MAP: Record<string, { emoji: string, category: ItemCategory }> = {
-  'Salgados': { emoji: '🍗', category: 'comida' },
-  'Bebidas': { emoji: '🥤', category: 'bebida' },
-  'Doces': { emoji: '🍬', category: 'comida' },
-  'Caldos': { emoji: '🍲', category: 'comida' },
+  'Salgados': { emoji: '🍗', category: 'salgados' },
+  'Bebidas': { emoji: '🥤', category: 'bebidas' },
+  'Doces': { emoji: '🍬', category: 'doces' },
+  'Caldos': { emoji: '🍲', category: 'caldos' },
   'Infantil': { emoji: '🎠', category: 'infantil' },
   'Avulso': { emoji: '🏷️', category: 'avulso' },
 }
@@ -186,12 +187,25 @@ async function initialize(): Promise<void> {
   console.log('PdvStoreDirectus: Tentando conectar ao Directus...')
 
   try {
+    if (!directusService.getConfiguredStatus()) {
+      loadFromCache()
+      loadSalesFromStorage()
+      loadSyncQueue()
+      isInitialized = true
+      console.warn('PdvStoreDirectus: Directus nao configurado neste build. App operando com cache local quando disponivel.')
+      return
+    }
+
     // Tenta carregar do Directus
     const [productsData, operatorsData, categoriesData] = await Promise.all([
       directusService.getProducts(),
       directusService.getOperators(),
       directusService.getCategories(),
     ])
+
+    if (!directusService.getOnlineStatus() || (productsData.length === 0 && operatorsData.length === 0 && categoriesData.length === 0)) {
+      throw new Error('Directus indisponivel ou sem dados iniciais. Usando cache local.')
+    }
 
     console.log(`PdvStoreDirectus: ✅ Directus ONLINE - ${productsData.length} produtos carregados`)
 
@@ -451,34 +465,10 @@ function getPrintableItems(): Array<{ name: string, quantity: number, total: num
 }
 
 async function finalizeSale(operatorName: string, paymentMethod: PaymentMethod = 'cash'): Promise<SaleRecord> {
-  if (getTotalItems() <= 0) {
-    throw new Error('Adicione itens para finalizar a venda.')
-  }
+  assertSaleCanBeFinalized(cartItems, inventoryItems)
 
-  // Valida estoque
-  for (const cartItem of cartItems) {
-    if (cartItem.quantity <= 0) {
-      continue
-    }
-
-    const stockItem = inventoryItems.find(inv => inv.id === cartItem.id)
-    if (!stockItem || stockItem.stock < cartItem.quantity) {
-      throw new Error(`Estoque insuficiente para ${cartItem.name}.`)
-    }
-  }
-
-  const lines: SaleLine[] = cartItems
-    .filter(item => item.quantity > 0)
-    .map(item => ({
-      id: item.id,
-      name: item.name,
-      quantity: item.quantity,
-      unitPrice: item.price,
-      total: item.quantity * item.price,
-      returnedQty: 0,
-    }))
-
-  const total = lines.reduce((sum, line) => sum + line.total, 0)
+  const lines: SaleLine[] = buildPreparedSaleLines(cartItems)
+  const total = calculateSaleTotal(lines)
 
   // Busca ID do operador
   const operator = operators.find(op => op.name === operatorName)

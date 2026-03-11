@@ -24,7 +24,6 @@ lerna-debug.log*
 pnpm-debug.log*
 
 # Package managers
-bun.lock
 yarn.lock
 package-lock.json
 pnpm-lock.yaml

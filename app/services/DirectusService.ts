@@ -59,32 +59,54 @@ interface PdvSaleItem {
   returned_qty?: number
 }
 
-// ID da categoria LOJINHA — excluída do PDV de quermesse
-const EXCLUDED_CATEGORY_IDS = [
-  '771786ea-9431-411b-8274-28b224bfb5ad', // Lojinha
-]
+// ID do ponto de produção LOJINHA — categorias e produtos desse point são excluídos do PDV
+const LOJINHA_PRODUCTION_POINT_ID = '771786ea-9431-411b-8274-28b224bfb5ad'
 
 // Schema completo do Directus
 // NOTA: Declarado como `any` para compatibilidade com @directus/sdk v21
 type DirectusSchema = any
 
+function getDirectusBuildConfig(): { url: string, token: string } {
+  return {
+    url: (__DIRECTUS_URL__ || '').trim(),
+    token: (__DIRECTUS_TOKEN__ || '').trim(),
+  }
+}
+
 class DirectusService {
-  private client: DirectusClient<DirectusSchema> & RestClient<DirectusSchema>
+  private client: (DirectusClient<DirectusSchema> & RestClient<DirectusSchema>) | null = null
+  private isConfigured = false
   private isOnline = true
 
   constructor() {
-    const DIRECTUS_URL = 'https://capela.softagon.app'
-    const DIRECTUS_TOKEN = 'oemH4mkn7q-bAHJ9MX2b3ba3BclI6thS'
+    const { url, token } = getDirectusBuildConfig()
 
-    this.client = createDirectus<DirectusSchema>(DIRECTUS_URL)
-      .with(staticToken(DIRECTUS_TOKEN))
+    if (!url || !token) {
+      this.isConfigured = false
+      this.isOnline = false
+      console.warn('DirectusService: DIRECTUS_URL/DIRECTUS_TOKEN ausentes. Backend desabilitado e cache local sera usado quando disponivel.')
+      return
+    }
+
+    this.client = createDirectus<DirectusSchema>(url)
+      .with(staticToken(token))
       .with(rest()) as DirectusClient<DirectusSchema> & RestClient<DirectusSchema>
+    this.isConfigured = true
+  }
+
+  private ensureClient(): DirectusClient<DirectusSchema> & RestClient<DirectusSchema> {
+    if (!this.client) {
+      this.isOnline = false
+      throw new Error('Directus nao configurado para este build.')
+    }
+
+    return this.client
   }
 
   // ----- OPERATORS -----
   async getOperators(): Promise<PdvOperator[]> {
     try {
-      const operators = await this.client.request(
+      const operators = await this.ensureClient().request(
         readItems('pdv_operators', {
           filter: { active: { _eq: true } },
           sort: ['name'],
@@ -107,7 +129,7 @@ class DirectusService {
    */
   async findOperatorByName(normalizedName: string): Promise<PdvOperator | null> {
     try {
-      const results = await this.client.request(
+      const results = await this.ensureClient().request(
         readItems('pdv_operators', {
           filter: { name: { _eq: normalizedName } },
           limit: 1,
@@ -138,7 +160,7 @@ class DirectusService {
 
     // 2. Criar novo
     try {
-      const created = await this.client.request(
+      const created = await this.ensureClient().request(
         createItem('pdv_operators', {
           name: normalizedName,
           active: true,
@@ -159,11 +181,18 @@ class DirectusService {
   // ----- CATEGORIES -----
   async getCategories(): Promise<PdvCategory[]> {
     try {
-      const categories = await this.client.request(
+      const categories = await this.ensureClient().request(
         readItems('pdv_categories', {
           filter: {
-            active: { _eq: true },
-            id: { _nin: EXCLUDED_CATEGORY_IDS },
+            _and: [
+              { active: { _eq: true } },
+              {
+                _or: [
+                  { production_point_id: { _null: true } },
+                  { production_point_id: { _neq: LOJINHA_PRODUCTION_POINT_ID } },
+                ],
+              },
+            ],
           },
           sort: ['sort_order'],
         }),
@@ -181,11 +210,13 @@ class DirectusService {
   // ----- PRODUCTS -----
   async getProducts(): Promise<PdvProduct[]> {
     try {
-      const products = await this.client.request(
+      const products = await this.ensureClient().request(
         readItems('pdv_products', {
           filter: {
-            active: { _eq: true },
-            category_id: { _nin: EXCLUDED_CATEGORY_IDS },
+            _and: [
+              { active: { _eq: true } },
+              { production_point_id: { _neq: LOJINHA_PRODUCTION_POINT_ID } },
+            ],
           },
           sort: ['sort_order'],
         }),
@@ -202,7 +233,7 @@ class DirectusService {
 
   async updateProductStock(productId: string, newQuantity: number): Promise<boolean> {
     try {
-      await this.client.request(
+      await this.ensureClient().request(
         updateItem('pdv_products', productId, {
           stock_quantity: newQuantity,
         }),
@@ -220,8 +251,10 @@ class DirectusService {
   // ----- SALES -----
   async createSale(sale: Omit<PdvSale, 'id'>, items: Omit<PdvSaleItem, 'id' | 'sale_id'>[]): Promise<string | null> {
     try {
+      const client = this.ensureClient()
+
       // 1. Criar a venda
-      const createdSale = await this.client.request(
+      const createdSale = await client.request(
         createItem('pdv_sales', sale),
       )
 
@@ -229,7 +262,7 @@ class DirectusService {
 
       // 2. Criar os itens da venda
       for (const item of items) {
-        await this.client.request(
+        await client.request(
           createItem('pdv_sale_items', {
             ...item,
             sale_id: saleId,
@@ -240,7 +273,7 @@ class DirectusService {
 
       // 3. Atualizar estoque dos produtos
       for (const item of items) {
-        const product = await this.client.request(
+        const product = await client.request(
           readItems('pdv_products', {
             filter: { id: { _eq: item.product_id } },
             fields: ['id', 'stock_quantity'],
@@ -266,8 +299,10 @@ class DirectusService {
 
   async cancelSale(saleId: string): Promise<boolean> {
     try {
+      const client = this.ensureClient()
+
       // 1. Buscar itens da venda para retornar ao estoque
-      const saleItems = await this.client.request(
+      const saleItems = await client.request(
         readItems('pdv_sale_items', {
           filter: { sale_id: { _eq: saleId } },
         }),
@@ -275,7 +310,7 @@ class DirectusService {
 
       // 2. Retornar produtos ao estoque
       for (const item of saleItems) {
-        const product = await this.client.request(
+        const product = await client.request(
           readItems('pdv_products', {
             filter: { id: { _eq: item.product_id } },
             fields: ['id', 'stock_quantity'],
@@ -290,7 +325,7 @@ class DirectusService {
       }
 
       // 3. Marcar venda como cancelada
-      await this.client.request(
+      await client.request(
         updateItem('pdv_sales', saleId, {
           sale_status: 'cancelled',
           status: 'published',
@@ -310,7 +345,7 @@ class DirectusService {
   // Gap #4: Atualiza status de impressão no Directus
   async markSalePrinted(saleId: string): Promise<boolean> {
     try {
-      await this.client.request(
+      await this.ensureClient().request(
         updateItem('pdv_sales', saleId, {
           printed: true,
           status: 'published',
@@ -333,8 +368,10 @@ class DirectusService {
     newTotal: number,
   ): Promise<boolean> {
     try {
+      const client = this.ensureClient()
+
       // 1. Remove itens antigos da venda
-      await this.client.request(
+      await client.request(
         deleteItems('pdv_sale_items', {
           filter: { sale_id: { _eq: saleId } },
         }),
@@ -342,7 +379,7 @@ class DirectusService {
 
       // 2. Cria os novos itens
       for (const item of newItems) {
-        await this.client.request(
+        await client.request(
           createItem('pdv_sale_items', {
             ...item,
             sale_id: saleId,
@@ -352,7 +389,7 @@ class DirectusService {
       }
 
       // 3. Atualiza total da venda
-      await this.client.request(
+      await client.request(
         updateItem('pdv_sales', saleId, {
           total_amount: newTotal,
         }),
@@ -382,7 +419,7 @@ class DirectusService {
         filterObj.operator_id = { _eq: filters.operatorId }
       }
 
-      const sales = await this.client.request(
+      const sales = await this.ensureClient().request(
         readItems('pdv_sales', {
           filter: filterObj,
           sort: ['-created_at'],
@@ -402,7 +439,7 @@ class DirectusService {
   // Gap #7: Atualiza returned_qty em pdv_sale_items
   async updateSaleItemReturnedQty(saleItemId: string, returnedQty: number): Promise<boolean> {
     try {
-      await this.client.request(
+      await this.ensureClient().request(
         updateItem('pdv_sale_items', saleItemId, {
           returned_qty: returnedQty,
         }),
@@ -420,7 +457,7 @@ class DirectusService {
   // Gap #8: Busca sale_items de uma venda pelo sale_id no Directus
   async getSaleItems(saleId: string): Promise<PdvSaleItem[]> {
     try {
-      const items = await this.client.request(
+      const items = await this.ensureClient().request(
         readItems('pdv_sale_items', {
           filter: { sale_id: { _eq: saleId } },
         }),
@@ -438,6 +475,10 @@ class DirectusService {
   // Status de conectividade
   getOnlineStatus(): boolean {
     return this.isOnline
+  }
+
+  getConfiguredStatus(): boolean {
+    return this.isConfigured
   }
 }
 

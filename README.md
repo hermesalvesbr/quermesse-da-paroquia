@@ -96,6 +96,18 @@ app/
 bun install
 ```
 
+### Configuração do Directus
+
+As credenciais do backend devem ser fornecidas no ambiente de build:
+
+```powershell
+$env:DIRECTUS_URL="https://seu-directus"
+$env:DIRECTUS_TOKEN="seu-token"
+ns run android --no-hmr
+```
+
+Sem essas variáveis, o app não usa backend remoto e tenta operar com cache local quando disponível.
+
 ---
 
 ## Comandos
@@ -113,6 +125,12 @@ ns run android --no-hmr --device <DEVICE_ID>
 # Lint
 bun run lint
 bun run lint:fix
+
+# Typecheck
+bun run typecheck
+
+# Testes
+bun run test
 
 # Gerar APK organizado
 bun run apk:build
@@ -136,7 +154,7 @@ git push origin v1.1.0
 
 O workflow:
 1. Instala Java 17, Android SDK, Node.js e Bun
-2. Roda `bun install` + `bunx ns build android`
+2. Roda `bun install`, `bun run lint`, `bun run typecheck`, `bun run test` e `ns build android`
 3. Copia o APK para `artifacts/apk/`
 4. Publica GitHub Release com os APKs anexados
 5. Gera release notes automáticas
@@ -210,4 +228,10 @@ Definidas em `App_Resources/Android/src/main/AndroidManifest.xml`:
 # ESLint com @antfu/eslint-config
 bun run lint
 bun run lint:fix
+
+# TypeScript
+bun run typecheck
+
+# Testes unitários
+bun run test
 ```
