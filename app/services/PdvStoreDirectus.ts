@@ -1,6 +1,6 @@
 import { ApplicationSettings } from '@nativescript/core'
 import { reactive } from 'vue'
-import { directusService, type PdvProduct, type PdvOperator, type PdvCategory, type PdvProductionPoint } from './DirectusService'
+import { buildDirectusAssetUrl, directusService, type PdvProduct, type PdvOperator, type PdvCategory, type PdvProductionPoint } from './DirectusService'
 import { assertSaleCanBeFinalized, buildPreparedSaleLines, calculateSaleTotal } from './PdvSaleRules'
 
 // Mantém as interfaces originais do PdvStore para compatibilidade
@@ -11,6 +11,7 @@ export interface MenuItem {
   name: string
   price: number
   emoji: string
+  imageUrl?: string | null
   category: ItemCategory
 }
 
@@ -108,6 +109,9 @@ const sales = reactive<SaleRecord[]>([])
 const operators = reactive<PdvOperator[]>([])
 const categories = reactive<PdvCategory[]>([])
 const productionPoints = reactive<PdvProductionPoint[]>([])
+const uiState = reactive({
+  catalogLoading: false,
+})
 let isInitialized = false
 
 // Fila de sincronização offline
@@ -153,6 +157,7 @@ function mapProductToInventory(product: PdvProduct): InventoryItem {
     name: product.name,
     price: Number(product.price),
     emoji: product.emoji || '📦',
+    imageUrl: buildDirectusAssetUrl(product.imagem),
     stock: product.stock_quantity,
     category: product.production_point_id || '',
   }
@@ -163,6 +168,8 @@ async function initialize(): Promise<void> {
   if (isInitialized) {
     return
   }
+
+  uiState.catalogLoading = true
 
   console.log('PdvStoreDirectus: Inicializando...')
   console.log('PdvStoreDirectus: Tentando conectar ao Directus...')
@@ -224,6 +231,9 @@ async function initialize(): Promise<void> {
     loadFromCache()
     isInitialized = true
   }
+  finally {
+    uiState.catalogLoading = false
+  }
 
   // Carrega vendas locais
   loadSalesFromStorage()
@@ -282,6 +292,7 @@ function updateCartFromInventory(): void {
       name: item.name,
       price: item.price,
       emoji: item.emoji,
+      imageUrl: item.imageUrl,
       category: item.category,
       quantity: existingQuantities.get(item.id) || 0,
     })
@@ -1130,6 +1141,7 @@ function getReport(period: 'day' | 'week', referenceDate: Date = new Date()): Pe
 }
 
 export const pdvStore = {
+  uiState,
   inventoryItems,
   cartItems,
   sales,

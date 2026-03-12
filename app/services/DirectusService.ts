@@ -27,6 +27,8 @@ interface PdvProductionPoint {
   role?: string
 }
 
+type DirectusFileReference = string | { id: string } | null
+
 interface PdvProduct {
   id: string
   name: string
@@ -38,6 +40,7 @@ interface PdvProduct {
   category_id: string
   production_point_id: string
   emoji: string
+  imagem?: DirectusFileReference
 }
 
 interface PdvSale {
@@ -72,6 +75,23 @@ function getDirectusBuildConfig(): { url: string, token: string } {
     url: (__DIRECTUS_URL__ || '').trim(),
     token: (__DIRECTUS_TOKEN__ || '').trim(),
   }
+}
+
+function normalizeDirectusBaseUrl(url: string): string {
+  return url.replace(/\/+$/, '')
+}
+
+function getDirectusFileId(file: DirectusFileReference | undefined): string {
+  if (!file) return ''
+  if (typeof file === 'string') return file.trim()
+  return typeof file.id === 'string' ? file.id.trim() : ''
+}
+
+function buildDirectusAssetUrl(file: DirectusFileReference | undefined): string | null {
+  const { url } = getDirectusBuildConfig()
+  const fileId = getDirectusFileId(file)
+  if (!url || !fileId) return null
+  return `${normalizeDirectusBaseUrl(url)}/assets/${fileId}?width=96&height=96&fit=cover&quality=80`
 }
 
 class DirectusService {
@@ -494,4 +514,5 @@ class DirectusService {
 
 // Singleton
 export const directusService = new DirectusService()
-export type { PdvCategory, PdvOperator, PdvProduct, PdvProductionPoint, PdvSale, PdvSaleItem }
+export { buildDirectusAssetUrl }
+export type { DirectusFileReference, PdvCategory, PdvOperator, PdvProduct, PdvProductionPoint, PdvSale, PdvSaleItem }

@@ -1,20 +1,34 @@
 <template>
-    <GridLayout rows="auto, *, auto" class="screen">
+    <GridLayout rows="auto, auto, *, auto" class="screen">
         <!-- Row 0: Printer warning banner -->
         <StackLayout row="0" v-if="!printerConnected" class="printer-warning-banner">
             <Label text="⚠️ IMPRESSORA DESCONECTADA — conecte para finalizar vendas" class="printer-warning-text" textWrap="true" />
         </StackLayout>
 
-        <!-- Row 1: Loading indicator while store initializes -->
-        <StackLayout row="1" v-if="!hasProducts" class="p-4" verticalAlignment="center">
+        <!-- Row 1: Search bar (outside TabView to avoid clipping) -->
+        <GridLayout row="1" v-if="hasProducts && selectedTabIndex === 0" columns="auto, *" class="search-wrap" columnGap="8">
+            <Label col="0" text="🔍" class="search-icon" verticalAlignment="center" />
+            <TextField
+                col="1"
+                v-model="searchQuery"
+                hint="Buscar produto..."
+                class="search-field"
+                returnKeyType="search"
+            />
+        </GridLayout>
+
+        <!-- Row 2: Loading indicator while store initializes -->
+        <StackLayout row="2" v-if="!hasProducts" class="p-4" verticalAlignment="center">
             <ActivityIndicator busy="true" class="m-b-4" />
             <Label text="Carregando produtos..." class="item-title" textAlign="center" />
         </StackLayout>
 
-        <!-- Row 1: TabView with production point tabs -->
+        <!-- Row 2: TabView with production point tabs -->
         <TabView
             v-if="hasProducts"
-            row="1"
+            row="2"
+            :selectedIndex="selectedTabIndex"
+            @selectedIndexChange="selectedTabIndex = $event.value"
             tabBackgroundColor="rgba(255,248,222,0.95)"
             tabTextColor="#7A4A28"
             selectedTabTextColor="#5A3418"
@@ -22,17 +36,7 @@
             :tabTextFontSize="14"
         >
             <TabViewItem v-for="tab in allTabs" :key="tab.key" :title="`${tab.emoji} ${tab.label}`">
-                <StackLayout height="100%">
-                    <StackLayout v-if="tab.key === '__all__'" class="search-wrap">
-                        <TextField
-                            v-model="searchQuery"
-                            hint="Buscar produto..."
-                            class="search-field"
-                            returnKeyType="search"
-                        />
-                    </StackLayout>
-
-                    <ScrollView height="100%">
+                    <ScrollView>
                         <StackLayout class="p-3">
                             <StackLayout v-if="(tab.key === '__all__' ? filteredAllItems : getFilteredItems(tab.key)).length === 0" class="soft-panel">
                                 <Label
@@ -49,39 +53,20 @@
                                 />
                             </StackLayout>
 
-                            <GridLayout
+                            <ProductItem
                                 v-for="item in (tab.key === '__all__' ? filteredAllItems : getFilteredItems(tab.key))"
                                 :key="item.id"
-                                columns="auto, *, auto"
-                                class="menu-item-card"
-                                columnGap="12"
-                            >
-                                <Label col="0" :text="item.emoji" class="emoji" />
-                                <StackLayout col="1">
-                                    <Label :text="item.name" class="item-title" />
-                                    <Label :text="formatMoney(item.price)" class="meta-text" />
-                                </StackLayout>
-                                <StackLayout col="2" class="qty-box">
-                                    <GridLayout columns="44, 30, 44" rows="44" class="qty-controls">
-                                        <Button col="0" row="0" text="−" class="qty-btn" @tap="pdvStore.decrementItem(item.id)" />
-                                        <Label col="1" row="0" :text="String(item.quantity)" class="qty-label" />
-                                        <Button col="2" row="0" text="+" class="qty-btn-add" @tap="pdvStore.incrementItem(item.id)" />
-                                    </GridLayout>
-                                    <Label
-                                        v-if="item.quantity > 0"
-                                        :text="`= ${formatMoney(item.price * item.quantity)}`"
-                                        class="subtotal"
-                                    />
-                                </StackLayout>
-                            </GridLayout>
+                                :item="item"
+                                @increment="pdvStore.incrementItem"
+                                @decrement="pdvStore.decrementItem"
+                            />
                         </StackLayout>
                     </ScrollView>
-                </StackLayout>
             </TabViewItem>
         </TabView>
 
-        <!-- Row 2: Fixed bottom bar — cart summary + payment + finalize -->
-        <StackLayout row="2" class="bottom-bar" rowGap="12">
+        <!-- Row 3: Fixed bottom bar — cart summary + payment + finalize -->
+        <StackLayout row="3" class="bottom-bar" rowGap="12">
             <!-- Cart summary -->
             <GridLayout columns="auto, *, auto">
                 <Label col="0" :text="`${totalItems} ${totalItems === 1 ? 'item' : 'itens'}`" class="bottom-count" />
@@ -132,6 +117,7 @@ import { computed, ref } from 'vue'
 import { getBluetoothService } from '../services/BluetoothService'
 import { pdvStore, type PaymentMethod } from '../services/PdvStoreDirectus'
 import { buildItemTickets } from '../utils/EscPosBuilder'
+import ProductItem from './ProductItem.vue'
 
 const props = defineProps<{
     operatorName: string
@@ -141,6 +127,7 @@ const props = defineProps<{
 const selectedPayment = ref<PaymentMethod>('cash')
 const isProcessing = ref(false)
 const searchQuery = ref('')
+const selectedTabIndex = ref(0)
 
 // Tabs dinâmicas baseadas nos pontos de produção do Directus
 const productionPointTabs = computed(() => pdvStore.getProductionPointTabs())

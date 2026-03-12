@@ -107,6 +107,15 @@ ns run android --no-hmr
 ```
 
 Sem essas variáveis, o app não usa backend remoto e tenta operar com cache local quando disponível.
+Em instalação limpa (sem cache), o catálogo ficará vazio.
+
+Para qualquer build APK, exporte as variáveis no mesmo terminal antes do comando:
+
+```powershell
+$env:DIRECTUS_URL="https://seu-directus"
+$env:DIRECTUS_TOKEN="seu-token"
+ns build android
+```
 
 ---
 

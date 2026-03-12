@@ -8,7 +8,8 @@ pdv-app/
 dist/
 out/
 build/
-.ns-vite-build
+.ns-vite-build/
+artifacts/
 *.apk
 *.aab
 *.ipa
@@ -75,5 +76,3 @@ DerivedData/
 .env
 .env.local
 .env.*.local
-*lock*
-.ns-vite-build

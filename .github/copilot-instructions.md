@@ -6,5 +6,6 @@
 - Priorize regras de negocio corretas para venda, estoque, devolucao, troca, impressao e sincronizacao offline.
 - Considere Bluetooth e rede como dependencias falhas por natureza. Sempre trate timeouts, desconexoes e modo offline.
 - Nao introduza segredos hardcoded. Configure Directus por variaveis de ambiente no build.
+- Nunca altere `windowSoftInputMode` no AndroidManifest. O valor correto e `adjustNothing|stateHidden`. Modos `adjustPan`/`adjustResize` causam tela branca quando o teclado abre no NativeScript+Vite.
 - Antes de concluir mudancas de codigo, prefira validar com `bun run lint`, `bun run typecheck`, `bun run test` e `ns build android` quando aplicavel.
 - Mantenha as instrucoes e documentos vivos: se encontrar divergencia entre codigo e docs, proponha atualizar ambos.

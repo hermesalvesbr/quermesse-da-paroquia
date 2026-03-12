@@ -52,6 +52,7 @@ Pre-condicoes obrigatorias:
 - Reuse helpers existentes antes de duplicar logica.
 - Em codigo NativeScript Android, evite APIs de browser e regex nao suportadas pelo runtime.
 - Bluetooth e rede devem ser tratados como ambientes falhos por padrao.
+- **Nunca altere `windowSoftInputMode`** no AndroidManifest. O valor correto e `adjustNothing|stateHidden`. Modos `adjustPan` e `adjustResize` causam tela branca no NativeScript+Vite quando o teclado abre.
 
 ## Validacao minima antes de abrir PR
 
@@ -72,6 +73,9 @@ ns run android --no-hmr
 ```
 
 Sem essas variaveis, o app entra em modo nao configurado para backend e deve operar apenas com dados locais em cache quando possivel.
+Em instalacao limpa (cache vazio), o catalogo ficara vazio.
+
+Para gerar APK com catalogo remoto, exporte as variaveis no mesmo terminal antes de `ns build android`.
 
 ## Context engineering
 

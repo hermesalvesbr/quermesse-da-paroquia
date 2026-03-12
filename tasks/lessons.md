@@ -86,6 +86,31 @@ bun run dev:android   # ou ns build android
 
 ---
 
+## 2026-03 — Tela branca com teclado aberto: adjustPan vs adjustResize no NativeScript+Vite
+
+**Contexto**: Após migração de webpack para Vite, ao focar um TextField (campo de busca), toda a área de conteúdo ficava em branco (apenas gradient de fundo visível) no Android enquanto o teclado estava aberto. Sem teclado, o layout funcionava corretamente.
+
+**Causa raiz**: `AndroidManifest.xml` usava `android:windowSoftInputMode="adjustPan|stateHidden"`. O `adjustPan` instrui o Android a "panear" visualmente a janela para cima quando o teclado abre. O NativeScript não recalcula coordenadas após o pan — elementos ficam nas posições originais (fora da área visível paneada), resultando em tela branca.
+
+**Fix**: Alterar `adjustPan` para `adjustResize` no `AndroidManifest.xml`:
+```xml
+android:windowSoftInputMode="adjustResize|stateHidden"
+```
+`adjustResize` instrui o Android a REDIMENSIONAR a janela (encurtar o bottom), não panear. O NativeScript recalcula os `*` rows da GridLayout e o layout se comprime proporcionalmente (não desaparece).
+
+**Efeito observado**:
+- Sem teclado: content-area = 1015px (correto, produtos visíveis)
+- Com teclado (`adjustResize`): content-area = 310px (comprimido — visível, não branco)
+- Com teclado (`adjustPan`): content-area = invisível (tela branca)
+
+**Regras para NativeScript-Vue 3 + Vite no Android**:
+1. **Sempre usar `adjustResize`** em apps NativeScript. `adjustPan` causa tela branca.
+2. **`:visibility` como prop fallthrough NÃO funciona** em NativeScript-Vue 3. Não passa para o native view. Usar `v-show` diretamente no componente.
+3. **GridLayout wrapper extra com `v-show`** colapsa os `*` rows. Nunca envolver page components em GridLayouts aninhados dentro de content-area que usa `rows="*"`.
+4. **`v-show` diretamente em componentes Vue** funciona corretamente — NativeScript-Vue 3 aplica `visibility: collapse` ao root view nativo.
+
+---
+
 ## 2026-03-03 — Revisão sistemática de espaçamento e UX design
 
 **Contexto**: Screenshots do app mostravam elementos visuais sem separação adequada (botões, inputs, cards colados), causando dificuldade de tap preciso e fadiga visual.
@@ -136,6 +161,47 @@ bun run dev:android   # ou ns build android
 - Impacto: 5 arquivos editados (app.css + 4 .vue), 11 replacements aplicados
 
 **Meta**: Zero elementos visualmente colados. Sempre priorizar UX sobre densidade de informação.
+
+---
+
+## 2026-03-12 — UI NativeScript: validar no runtime, não assumir comportamento web/CSS
+
+**Contexto**: Foram aplicados ajustes de UX/UI no PDV que pareciam corretos no código, mas o usuário mostrou screenshot provando que a busca continuava escondida, o drawer seguia truncado e o stepper de quantidade permanecia desalinhado no Android.
+
+**Causa raiz**:
+1. O APK inicialmente rodava bundle antigo por causa do hook `after-prepare`, então parte das mudanças nem chegava ao emulador.
+2. Mesmo após o bundle correto, alguns ajustes presumiam comportamento de layout mais próximo de web do que do runtime NativeScript Android.
+3. `GridLayout` + `Button`/`Label` em controles compactos pode renderizar de forma diferente do esperado; `FlexboxLayout` foi mais previsível para o stepper horizontal.
+
+**Fix**:
+1. Corrigir `hooks/after-prepare/copy-vite-output.js` para copiar o conteúdo de `.ns-vite-build` arquivo a arquivo.
+2. Mover a busca para fora do `TabView`, em linha própria e fixa.
+3. Reestruturar drawer com `rowSpan`, `GridLayout rows="auto,*"` e `ScrollView` para preencher a altura útil.
+4. Trocar o stepper para `FlexboxLayout` com três células fixas (`-`, quantidade, `+`).
+
+**Regra**:
+1. Em NativeScript Android, nunca considerar ajuste visual concluído sem validação no emulador/device.
+2. Para overlays e drawers, preferir `GridLayout` com `rowSpan` e painel rolável em vez de `StackLayout` solto.
+3. Para controles horizontais compactos, preferir `FlexboxLayout` a `GridLayout` quando houver desalinhamento no Android.
+4. Sempre conferir a árvore de UI (`uiautomator dump`) quando o screenshot contradizer o código.
+
+---
+
+## 2026-03-12 — Digitação no TextField distorcendo UI: init duplicada + soft input
+
+**Contexto**: Ao digitar na busca do PDV, a tela ficava distorcida/intermitente no emulador Android.
+
+**Causa raiz**:
+1. `pdvStore.initialize()` era chamado duas vezes (em `app/app.ts` e em `AppShell.vue`), gerando carga duplicada de catálogo e jank forte no startup.
+2. `windowSoftInputMode` não estava definido no `NativeScriptActivity`, permitindo comportamento de resize/pan inconsistente ao focar `TextField`.
+
+**Fix**:
+1. Remover inicialização no `app/app.ts` e manter um único init no `onMounted` do `AppShell`.
+2. Definir `android:windowSoftInputMode="adjustPan|stateHidden"` no `AndroidManifest`.
+
+**Regra**:
+1. Garantir inicialização única de serviços pesados no app shell.
+2. Para telas com `TextField` + layout complexo em Android, declarar explicitamente `windowSoftInputMode` no manifest.
 
 ## 2026-03-02 — `ios.position` crashava o app no Android
 

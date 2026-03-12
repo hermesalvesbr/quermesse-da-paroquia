@@ -65,12 +65,15 @@ O aplicativo e um PDV Android nativo construido com NativeScript 9, Vue 3 e Type
 - Separacao entre UI, servicos e utilitarios: componentes nao devem concentrar regra de negocio.
 - Explicitacao sobre cleverness: regras de estoque, impressao e sincronizacao devem ser legiveis.
 - Android-only: evitar codigo `ios.*` e APIs nao suportadas pelo runtime Android.
+- `windowSoftInputMode` obrigatorio: usar `adjustNothing|stateHidden` no AndroidManifest. Modos `adjustPan` e `adjustResize` causam tela branca no NativeScript+Vite quando o teclado abre.
+- `v-show` em componentes Vue: funciona corretamente no NativeScript-Vue 3 para mostrar/ocultar paginas. Nao usar `:visibility` como prop fallthrough nem wrappers GridLayout extras.
 
 ## Riscos conhecidos
 
 - Segredos e configuracoes do backend precisam vir de ambiente de build ou configuracao explicita, nunca de valores hardcoded.
 - A ausencia de testes em regras de negocio aumenta o risco em um sistema financeiro-operacional.
 - Contexto de IA desatualizado gera sugestoes inconsistentes e pode degradar manutencao.
+- Alterar `windowSoftInputMode` no AndroidManifest para `adjustPan` ou `adjustResize` causa tela branca quando qualquer TextField recebe foco (teclado virtual abre). Manter `adjustNothing`.
 
 ## Regras para contribuicao tecnica
 

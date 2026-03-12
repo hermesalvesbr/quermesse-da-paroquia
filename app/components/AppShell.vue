@@ -1,16 +1,20 @@
 <template>
     <Page class="app-root" actionBarHidden="true">
-        <GridLayout rows="auto, *">
+        <GridLayout rows="56, *">
             <!-- Row 0: Custom top bar with hamburger -->
             <GridLayout row="0" columns="auto, *, auto" class="custom-topbar" columnGap="8">
                 <Label col="0" text="☰" class="hamburger-btn" @tap="toggleMenu" />
                 <Label col="1" :text="pageTitle" class="topbar-title" />
-                <Label
-                    col="2"
-                    :text="printerConnected ? '🟢' : '🔴'"
-                    class="topbar-printer-dot"
-                    @tap="selectPage('printer')"
-                />
+                <FlexboxLayout col="2" @tap="selectPage('printer')" class="topbar-printer-tap">
+                    <Label
+                        :text="printerConnected ? '🟢' : '🔴'"
+                        class="topbar-printer-dot"
+                    />
+                    <Label
+                        :text="printerConnected ? 'OK' : 'OFF'"
+                        :class="printerConnected ? 'topbar-printer-ok' : 'topbar-printer-off'"
+                    />
+                </FlexboxLayout>
             </GridLayout>
 
             <!-- Row 1: Content -->
@@ -50,30 +54,34 @@
                 </GridLayout>
 
                 <!-- Layer 1: Drawer overlay — on top of content -->
-                <GridLayout v-if="isMenuOpen" row="0" columns="280, *">
-                    <StackLayout col="0" class="drawer">
-                        <StackLayout class="drawer-header">
+                <GridLayout v-if="isMenuOpen" row="0" rowSpan="2" columns="280, *" class="drawer-layer">
+                    <GridLayout col="0" rows="auto, *" class="drawer">
+                        <StackLayout row="0" class="drawer-header">
                             <Image src="~/assets/logo.png" stretch="aspectFit" height="54" class="m-b-2" />
                             <Label text="PDV Quermesse" class="drawer-title" />
                             <Label :text="operatorLabel" class="drawer-subtitle" textWrap="true" />
                         </StackLayout>
 
-                        <Label text="NAVEGAÇÃO" class="drawer-section-label" />
-                        <Button text="🍽️  PDV" class="drawer-item" :class="activePage === 'pdv' ? 'drawer-item-active' : ''" @tap="selectPage('pdv')" />
-                        <Button text="📋 Vendas" class="drawer-item" :class="activePage === 'vendas' ? 'drawer-item-active' : ''" @tap="selectPage('vendas')" />
-                        <Button text="📊  Relatórios" class="drawer-item" :class="activePage === 'relatorios' ? 'drawer-item-active' : ''" @tap="selectPage('relatorios')" />
+                        <ScrollView row="1">
+                            <StackLayout class="drawer-scroll">
+                                <Label text="NAVEGAÇÃO" class="drawer-section-label" />
+                                <Button text="🍽️  PDV" class="drawer-item" :class="activePage === 'pdv' ? 'drawer-item-active' : ''" @tap="selectPage('pdv')" />
+                                <Button text="📋 Vendas" class="drawer-item" :class="activePage === 'vendas' ? 'drawer-item-active' : ''" @tap="selectPage('vendas')" />
+                                <Button text="📊  Relatórios" class="drawer-item" :class="activePage === 'relatorios' ? 'drawer-item-active' : ''" @tap="selectPage('relatorios')" />
 
-                        <StackLayout class="drawer-divider" />
+                                <StackLayout class="drawer-divider" />
 
-                        <Label text="SISTEMA" class="drawer-section-label" />
-                        <Button text="🖨 Impressora" class="drawer-item" :class="activePage === 'printer' ? 'drawer-item-active' : ''" @tap="selectPage('printer')" />
-                        <Button text="⚙️  Configurações" class="drawer-item" :class="activePage === 'settings' ? 'drawer-item-active' : ''" @tap="selectPage('settings')" />
+                                <Label text="SISTEMA" class="drawer-section-label" />
+                                <Button text="🖨 Impressora" class="drawer-item" :class="activePage === 'printer' ? 'drawer-item-active' : ''" @tap="selectPage('printer')" />
+                                <Button text="⚙️  Configurações" class="drawer-item" :class="activePage === 'settings' ? 'drawer-item-active' : ''" @tap="selectPage('settings')" />
 
-                        <StackLayout class="drawer-divider" />
+                                <StackLayout class="drawer-divider" />
 
-                        <Label text="OPERADOR" class="drawer-section-label" />
-                        <Button text="🔄  Mudar Operador" class="drawer-item" @tap="onDrawerChangeOperator" />
-                    </StackLayout>
+                                <Label text="OPERADOR" class="drawer-section-label" />
+                                <Button text="🔄  Mudar Operador" class="drawer-item" @tap="onDrawerChangeOperator" />
+                            </StackLayout>
+                        </ScrollView>
+                    </GridLayout>
                     <StackLayout col="1" class="drawer-backdrop" @tap="toggleMenu" />
                 </GridLayout>
 
