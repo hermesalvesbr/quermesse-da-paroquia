@@ -1,5 +1,7 @@
 import { createDirectus, rest, staticToken, readItems, createItem, updateItem, deleteItems, type DirectusClient, type RestClient } from '@directus/sdk'
 
+const TRAILING_SLASHES_REGEX = /\/+$/
+
 // Schemas das collections Directus
 interface PdvOperator {
   id: string
@@ -78,7 +80,7 @@ function getDirectusBuildConfig(): { url: string, token: string } {
 }
 
 function normalizeDirectusBaseUrl(url: string): string {
-  return url.replace(/\/+$/, '')
+  return url.replace(TRAILING_SLASHES_REGEX, '')
 }
 
 function getDirectusFileId(file: DirectusFileReference | undefined): string {

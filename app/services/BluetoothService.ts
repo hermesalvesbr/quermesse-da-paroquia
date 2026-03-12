@@ -55,7 +55,7 @@ export class BluetoothService {
         this.notifyStatus('Carregando impressoras pareadas...');
         const bondedDevices = this.bluetoothAdapter.getBondedDevices();
         const devices = bondedDevices
-            ? Array.from(bondedDevices.toArray() as android.bluetooth.BluetoothDevice[])
+            ? [...(bondedDevices.toArray() as android.bluetooth.BluetoothDevice[])]
             : [];
 
         for (const device of devices) {

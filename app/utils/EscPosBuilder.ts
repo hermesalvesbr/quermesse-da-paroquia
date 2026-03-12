@@ -1,21 +1,31 @@
+const ASCII_REPLACEMENTS: Array<[RegExp, string]> = [
+    [/[ÁÀÂÃÄ]/g, 'A'],
+    [/[áàâãä]/g, 'a'],
+    [/[ÉÈÊË]/g, 'E'],
+    [/[éèêë]/g, 'e'],
+    [/[ÍÌÎÏ]/g, 'I'],
+    [/[íìîï]/g, 'i'],
+    [/[ÓÒÔÕÖ]/g, 'O'],
+    [/[óòôõö]/g, 'o'],
+    [/[ÚÙÛÜ]/g, 'U'],
+    [/[úùûü]/g, 'u'],
+    [/Ç/g, 'C'],
+    [/ç/g, 'c'],
+]
+const COMBINING_MARKS_REGEX = /[\u0300-\u036F]/g
+
 // Standard ESC/POS commands
 export class EscPosBuilder {
     private buffer: number[] = [];
 
     private toAscii(text: string): string {
-        return text
-            .replace(/[ÁÀÂÃÄ]/g, 'A')
-            .replace(/[áàâãä]/g, 'a')
-            .replace(/[ÉÈÊË]/g, 'E')
-            .replace(/[éèêë]/g, 'e')
-            .replace(/[ÍÌÎÏ]/g, 'I')
-            .replace(/[íìîï]/g, 'i')
-            .replace(/[ÓÒÔÕÖ]/g, 'O')
-            .replace(/[óòôõö]/g, 'o')
-            .replace(/[ÚÙÛÜ]/g, 'U')
-            .replace(/[úùûü]/g, 'u')
-            .replace(/Ç/g, 'C')
-            .replace(/ç/g, 'c')
+        let normalized = text
+
+        for (const [pattern, replacement] of ASCII_REPLACEMENTS) {
+            normalized = normalized.replace(pattern, replacement)
+        }
+
+        return normalized
     }
 
     // Initialize printer
@@ -179,7 +189,7 @@ export function buildItemTickets(data: TicketData): number[] {
     const printableUpper = (value: string): string => {
         return value
             .normalize('NFD')
-            .replace(/[\u0300-\u036F]/g, '')
+            .replace(COMBINING_MARKS_REGEX, '')
             .toUpperCase()
     }
 

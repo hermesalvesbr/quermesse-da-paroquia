@@ -669,8 +669,7 @@ function getProductionPointTabs(): ProductionPointTab[] {
   }
 
   // Fallback offline sem cache de pontos de produção: deriva tabs das categorias dos itens
-  return Array.from(new Set(cartItems.map(item => item.category).filter(Boolean)))
-    .map(productionPointId => ({
+  return Array.from(new Set(cartItems.map(item => item.category).filter(Boolean)), productionPointId => ({
       key: productionPointId,
       label: productionPointId,
       emoji: '📦',

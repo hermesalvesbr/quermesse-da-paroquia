@@ -250,7 +250,7 @@ async function scanPrinters(): Promise<void> {
 
     try {
         await btService.startScanning((device) => {
-            if (!printers.value.find(printer => printer.address === device.address)) {
+            if (!printers.value.some(printer => printer.address === device.address)) {
                 printers.value.push(device)
             }
         })

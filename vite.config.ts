@@ -3,6 +3,10 @@ import { resolve } from 'node:path'
 import { defineConfig, mergeConfig, UserConfig, Plugin } from 'vite'
 import { vueConfig } from '@nativescript/vite'
 
+const packageJsonPath = resolve(process.cwd(), 'package.json')
+const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as { version?: string }
+const appVersion = packageJson.version || '0.0.0'
+
 function forceBundleMjsMainPlugin(): Plugin {
   return {
     name: 'force-bundle-mjs-main',
@@ -45,6 +49,7 @@ export default defineConfig(({ mode }): UserConfig => {
   return mergeConfig(vueConfig({ mode }), {
     plugins: [forceBundleMjsMainPlugin()],
     define: {
+      __APP_VERSION__: JSON.stringify(appVersion),
       __DIRECTUS_URL__: JSON.stringify(process.env.DIRECTUS_URL || ''),
       __DIRECTUS_TOKEN__: JSON.stringify(process.env.DIRECTUS_TOKEN || ''),
     },

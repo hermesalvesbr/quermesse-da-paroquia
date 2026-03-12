@@ -168,7 +168,7 @@ function normalizeInventory(items: unknown[]): InventoryItem[] {
     }
 
     for (const base of initialInventory) {
-        if (!normalized.find(item => item.id === base.id)) {
+        if (!normalized.some(item => item.id === base.id)) {
             normalized.push({ ...base })
         }
     }

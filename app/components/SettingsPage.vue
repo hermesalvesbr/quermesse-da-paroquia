@@ -4,6 +4,7 @@
             <StackLayout class="glass-card">
                 <Label text="Configurações do caixa" class="title" />
                 <Label text="Dados do operador atual" class="subtitle" />
+                <Label :text="`Versão atual: v${appVersion}`" class="meta-text m-t-1" textWrap="true" />
 
                 <StackLayout class="soft-panel">
                     <Label :text="`Operador: ${operatorName || 'Não definido'}`" class="item-title" />
@@ -124,6 +125,8 @@ defineProps<{
 defineEmits<{
     (e: 'requestChangeOperator'): void
 }>()
+
+const appVersion = __APP_VERSION__
 
 // ── Estado de permissões ────────────────────────────────────────────────────────
 const permissionStatus = ref<BluetoothPermissionStatus>({

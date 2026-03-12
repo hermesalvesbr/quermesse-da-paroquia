@@ -1,3 +1,5 @@
+const MULTIPLE_SPACES_REGEX = /\s+/g
+
 /**
  * Utilitários de normalização e validação de nome de operador.
  *
@@ -19,7 +21,7 @@
 export function normalizeOperatorName(name: string): string {
   return name
     .trim()
-    .replace(/\s+/g, ' ')
+    .replace(MULTIPLE_SPACES_REGEX, ' ')
     .split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ')
