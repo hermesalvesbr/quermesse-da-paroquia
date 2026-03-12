@@ -65,7 +65,20 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
+      - name: Validate Directus build secrets
+        env:
+          DIRECTUS_URL: ${{ secrets.DIRECTUS_URL }}
+          DIRECTUS_TOKEN: ${{ secrets.DIRECTUS_TOKEN }}
+        run: |
+          if [ -z "$DIRECTUS_URL" ] || [ -z "$DIRECTUS_TOKEN" ]; then
+            echo "DIRECTUS_URL/DIRECTUS_TOKEN não configurados nos secrets do repositório."
+            exit 1
+          fi
+
       - name: Build Android APK
+        env:
+          DIRECTUS_URL: ${{ secrets.DIRECTUS_URL }}
+          DIRECTUS_TOKEN: ${{ secrets.DIRECTUS_TOKEN }}
         run: ns build android
 
       - name: Prepare APK artifact

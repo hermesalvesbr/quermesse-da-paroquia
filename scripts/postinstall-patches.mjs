@@ -71,7 +71,7 @@ patchFile('@nativescript/vite/helpers/project.js', [
 {
   const projPath = resolve(root, 'node_modules', '@nativescript/vite/helpers/project.js')
   let content = readFileSync(projPath, 'utf8')
-  if (!content.includes('fileURLToPath')) {
+  if (!content.includes("import { fileURLToPath } from 'node:url';")) {
     content = content.replace(
       "import { resolve, dirname } from 'path';",
       "import { resolve, dirname } from 'path';\nimport { fileURLToPath } from 'node:url';"

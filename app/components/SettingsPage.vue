@@ -5,6 +5,18 @@
                 <Label text="Configurações do caixa" class="title" />
                 <Label text="Dados do operador atual" class="subtitle" />
                 <Label :text="`Versão atual: v${appVersion}`" class="meta-text m-t-1" textWrap="true" />
+                <Label
+                    :text="backendConfigured ? 'Directus no build: configurado' : 'Directus no build: ausente'"
+                    :class="backendConfigured ? 'status-text-online' : 'status-text-offline'"
+                    class="meta-text m-t-1 font-bold"
+                    textWrap="true"
+                />
+                <Label
+                    v-if="!backendConfigured"
+                    text="Este APK foi gerado sem DIRECTUS_URL e DIRECTUS_TOKEN. Sem isso, o catálogo remoto não é carregado."
+                    class="subtitle m-t-1"
+                    textWrap="true"
+                />
 
                 <StackLayout class="soft-panel">
                     <Label :text="`Operador: ${operatorName || 'Não definido'}`" class="item-title" />
@@ -117,6 +129,7 @@ import {
 defineProps<{
     operatorName: string
     operatorLoginAt: string
+    backendConfigured: boolean
     printerConnected: boolean
     internetConnected: boolean
     bluetoothEnabled: boolean

@@ -61,21 +61,37 @@ ActionBar.app-actionbar {
     background-color: transparent;
 }
 
+.drawer-layer {
+    width: 100%;
+    height: 100%;
+}
+
 .drawer {
-    background-color: rgba(58, 32, 12, 0.92);
+    background-color: rgba(58, 32, 12, 0.97);
     border-right-width: 1;
     border-right-color: rgba(255, 224, 138, 0.3);
-    vertical-align: top;
+    vertical-align: stretch;
+    height: 100%;
 }
 
 .drawer-backdrop {
     background-color: rgba(0, 0, 0, 0.45);
+    vertical-align: stretch;
+    height: 100%;
 }
 
 .drawer-header {
     background-color: rgba(255, 224, 138, 0.16);
     padding: 16;
     margin-bottom: 8;
+}
+
+.drawer-scroll-view {
+    height: 100%;
+}
+
+.drawer-scroll {
+    padding-bottom: 20;
 }
 
 .drawer-title {
@@ -92,7 +108,7 @@ ActionBar.app-actionbar {
 .drawer-item {
     margin: 6 12;
     border-radius: 14;
-    background-color: rgba(255, 224, 138, 0.16);
+    background-color: rgba(255, 224, 138, 0.22);
     color: #fff1c8;
     font-size: 15;
     font-weight: 600;

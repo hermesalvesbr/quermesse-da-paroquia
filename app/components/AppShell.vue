@@ -46,6 +46,7 @@
                         v-show="activePage === 'settings'"
                         :operatorName="operatorName"
                         :operatorLoginAt="operatorLoginAt"
+                        :backendConfigured="backendConfigured"
                         :printerConnected="printerConnected"
                         :internetConnected="internetConnected"
                         :bluetoothEnabled="bluetoothEnabled"
@@ -54,7 +55,7 @@
                 </GridLayout>
 
                 <!-- Layer 1: Drawer overlay — on top of content -->
-                <GridLayout v-if="isMenuOpen" row="0" rowSpan="2" columns="280, *" class="drawer-layer">
+                <GridLayout v-if="isMenuOpen" row="0" columns="280, *" class="drawer-layer">
                     <GridLayout col="0" rows="auto, *" class="drawer">
                         <StackLayout row="0" class="drawer-header">
                             <Image src="~/assets/logo.png" stretch="aspectFit" height="54" class="m-b-2" />
@@ -62,7 +63,7 @@
                             <Label :text="operatorLabel" class="drawer-subtitle" textWrap="true" />
                         </StackLayout>
 
-                        <ScrollView row="1">
+                        <ScrollView row="1" class="drawer-scroll-view">
                             <StackLayout class="drawer-scroll">
                                 <Label text="NAVEGAÇÃO" class="drawer-section-label" />
                                 <Button text="🍽️  PDV" class="drawer-item" :class="activePage === 'pdv' ? 'drawer-item-active' : ''" @tap="selectPage('pdv')" />
@@ -130,8 +131,10 @@ import { Application, alert } from '@nativescript/core'
 import { connectionType, getConnectionType, startMonitoring, stopMonitoring } from '@nativescript/core/connectivity'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { getBluetoothService } from '../services/BluetoothService'
+import { directusService } from '../services/DirectusService'
 import { OperatorSessionService } from '../services/OperatorSessionService'
 import { pdvStore } from '../services/PdvStoreDirectus'
+import { checkBluetoothPermissions, ensureBluetoothPermissions } from '../utils/BluetoothPermissions'
 import { normalizeOperatorName, validateOperatorName, OPERATOR_NAME_VALIDATION_MSG } from '../utils/OperatorNameUtils'
 import PdvPage from './PdvPage.vue'
 import PrinterPage from './PrinterPage.vue'
@@ -156,6 +159,8 @@ const printerConnected = ref(false)
 const internetConnected = ref(true)
 const bluetoothEnabled = ref(false)
 const startupCheckDone = ref(false)
+
+const backendConfigured = computed(() => directusService.getConfiguredStatus())
 
 // Validação em tempo real do campo de nome do operador
 watch(operatorInput, (raw) => {
@@ -205,6 +210,7 @@ onMounted(async () => {
     })
 
     await refreshConnectivityStatus()
+    await ensureCriticalRuntimePermissions()
 
     startMonitoring((newType) => {
         internetConnected.value = newType !== connectionType.none
@@ -228,6 +234,19 @@ async function refreshConnectivityStatus(): Promise<void> {
     printerConnected.value = btService.getConnectedStatus()
 }
 
+async function ensureCriticalRuntimePermissions(): Promise<void> {
+    const permissionStatus = checkBluetoothPermissions()
+    if (!permissionStatus.needsRuntimeRequest || permissionStatus.allGranted) {
+        return
+    }
+
+    try {
+        await ensureBluetoothPermissions()
+    } catch (error) {
+        console.warn('Falha ao solicitar permissões Bluetooth na abertura:', error)
+    }
+}
+
 async function runStartupCriticalChecks(): Promise<void> {
     if (startupCheckDone.value) {
         return
@@ -235,8 +254,18 @@ async function runStartupCriticalChecks(): Promise<void> {
 
     const warnings: string[] = []
 
+    const bluetoothPermissionStatus = checkBluetoothPermissions()
+
+    if (!backendConfigured.value) {
+        warnings.push('• Este APK foi gerado sem DIRECTUS_URL/DIRECTUS_TOKEN. O catálogo remoto não será carregado neste build.')
+    }
+
     if (!internetConnected.value) {
         warnings.push('• Internet indisponível. O catálogo não será atualizado do Directus.')
+    }
+
+    if (bluetoothPermissionStatus.needsRuntimeRequest && !bluetoothPermissionStatus.allGranted) {
+        warnings.push('• Permissões Bluetooth pendentes. A impressora não funcionará até você concedê-las.')
     }
 
     if (!bluetoothEnabled.value) {
